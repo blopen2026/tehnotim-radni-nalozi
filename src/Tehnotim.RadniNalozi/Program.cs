@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
 using Tehnotim.RadniNalozi.Baza;
 using Tehnotim.RadniNalozi.Klijenti;
+using Tehnotim.RadniNalozi.Nalozi;
 using Tehnotim.RadniNalozi.Prijava;
 using Tehnotim.RadniNalozi.Sifarnici;
 using Tehnotim.RadniNalozi.Uredjaji;
@@ -82,6 +83,9 @@ app.MapCitanjeTabele();
 
 // Uređaji
 app.MapUredjaji(connectionString);
+
+// Radni nalozi
+app.MapNalozi(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>

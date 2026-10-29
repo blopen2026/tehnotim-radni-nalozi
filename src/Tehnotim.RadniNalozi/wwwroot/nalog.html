@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radni nalog – Tehnotim</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .sec{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:grid;grid-template-columns:150px 1fr;overflow:hidden}
+  .sec>.lab{background:var(--sunk);padding:14px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--line)}
+  .sec>.body{padding:14px;display:grid;gap:12px;min-width:0}
+  @media (max-width:640px){.sec{grid-template-columns:1fr}.sec>.lab{border-right:0;border-bottom:1px solid var(--line);padding:10px 14px}}
+  .g{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .g2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .pozivgrp{grid-column:span 2;display:grid;gap:6px;min-width:0}
+  .pz2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.pozivgrp{grid-column:1/-1}}
+  textarea{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-height:70px;resize:vertical}
+  input[readonly]{background:var(--sunk)}
+  .hint{font-size:13px;color:var(--muted);min-height:1em}
+  .hint.ok{color:var(--ok)} .hint.new{color:var(--warn)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex-wrap:wrap}
+  .seg label{display:flex;align-items:center;cursor:pointer}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg span{padding:7px 12px;font-weight:600;font-size:14px;border-right:1px solid var(--line)}
+  .seg label:last-child span{border-right:0}
+  .seg input:checked+span{background:var(--band);color:#fff}
+  .seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+  .yn{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .yn h2{min-width:9.5em;margin:0}
+  .rows{display:grid;gap:8px}
+  .row-d{display:grid;gap:8px;align-items:start;grid-template-columns:1.2fr 1.2fr 1fr 1fr auto}
+  .row-m{display:grid;gap:8px;align-items:start;grid-template-columns:2fr 90px 1fr auto}
+  @media (max-width:560px){.row-d,.row-m{grid-template-columns:1fr 1fr}.x{grid-column:span 2;justify-self:end}}
+  .devcard{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px}
+  .cnt{display:grid;gap:10px;padding:12px;background:var(--sunk);border-radius:6px}
+  .cnt input:not([readonly]){background:var(--surface)}
+  .cnt-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .prev{font-size:13px;color:var(--muted)}
+  .calc{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px}
+  .calc input{width:90px}
+  .sum{font:500 16px Consolas,monospace}
+  button.ghost{background:none;border-color:transparent;color:var(--muted);padding:6px 8px}
+  .actions{position:sticky;bottom:0;background:var(--bg);padding:12px 0;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center;z-index:4}
+  .chip.u_radu{background:#dde9f6;color:#1f5a96} .chip.ceka_potpis{background:var(--warn-bg);color:var(--warn)} .chip.zavrsen{background:var(--ok-bg);color:var(--ok)} .chip.novo_iz_tiketa{background:var(--sunk);color:var(--ink)}
+  .check{display:flex;gap:8px;align-items:center} .check input{width:auto}
+</style>
+</head>
+<body>
+<main id="main"><div class="card">Učitavam…</div></main>
+<datalist id="dl-klijenti"></datalist>
+<datalist id="dl-jedinice"></datalist>
+<datalist id="dl-modeli"></datalist>
+<datalist id="dl-materijal"></datalist>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const norm = s => String(s ?? '').trim().toLowerCase();
+const p2 = n => String(n).padStart(2, '0');
+const danas = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+const sada = () => { const d = new Date(); return `${danas()}T${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(n) ? 0 : n; };
+const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+
+let S = { klijenti: [], tipovi: [], modeli: [], materijal: [], nosioci: [], postavke: {}, jedinice: [] };
+let cur = null, nalogId = new URLSearchParams(location.search).get('id'), vrijemeRucno = false;
+
+const tipById = id => S.tipovi.find(t => String(t.id) === String(id));
+const kByName = n => S.klijenti.find(k => norm(k.naziv) === norm(n));
+const jByName = n => S.jedinice.find(j => norm(j.naziv) === norm(n));
+const seg = (name, opts) => `<div class="seg" role="radiogroup">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div>`;
+const getR = n => document.querySelector(`input[name="${n}"]:checked`)?.value || null;
+const setR = (n, v) => $$(`input[name="${n}"]`).forEach(i => i.checked = i.value === v);
+
+// ---------- Forma ----------
+function buildForm() {
+  const n = cur;
+  $('#main').innerHTML = `
+  <div class="head"><a href="/">← Početna</a><h1 style="margin:0">${n.broj ? `Radni nalog <span class="mono">${esc(n.broj)}</span>` : 'Novi radni nalog'}</h1>${n.faza ? `<span class="chip ${n.faza}">${FAZE[n.faza]}</span>` : ''}</div>
+
+  <div class="sec"><div class="lab">Nalog</div><div class="body">
+    <div class="g">
+      <label class="f"><span>ID radnog naloga</span><input id="f-broj" readonly value="${esc(n.broj || '')}" placeholder="dodjeljuje se pri čuvanju"></label>
+      <div class="pozivgrp"><h2 style="margin:0">Poziv na zahtjev za podršku</h2>
+        <div class="pz2"><label class="f"><span>Interni</span><input id="f-poziv"></label>
+        <label class="f"><span>Eksterni (tiket klijenta)</span><input id="f-pozivx" placeholder="ako klijent traži"></label></div></div>
+      <label class="f"><span>Datum izdavanja</span><input id="f-datum" type="date"></label>
+      <label class="f"><span>Nosilac naloga</span><select id="f-nosilac"></select></label>
+    </div>
+    <div class="g">
+      <label class="f"><span>Datum i vrijeme zahtjeva</span><input id="f-zahtjev" type="datetime-local"></label>
+      <label class="f"><span>Početak rada</span><input id="f-pocetak" type="datetime-local"></label>
+      <label class="f"><span>Završetak rada</span><input id="f-kraj" type="datetime-local"></label>
+      <label class="f"><span>Utrošeno vrijeme rada</span><input id="f-vrijeme" placeholder="npr. 8 h ili 2 h 30 min"><span class="hint" id="h-vrijeme"></span></label>
+    </div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Korisnik</div><div class="body">
+    <div class="g2">
+      <label class="f"><span>Korisnik</span><input id="f-klijent" list="dl-klijenti" autocomplete="off" placeholder="Počni kucati naziv…"><span class="hint" id="h-klijent"></span></label>
+      <label class="f"><span>Poslovna jedinica / lokacija</span><input id="f-lokacija" list="dl-jedinice" autocomplete="off" placeholder="Izaberi ili upiši novu"><span class="hint" id="h-lok"></span></label>
+    </div>
+    <div class="g2">
+      <label class="f"><span>Adresa</span><input id="f-adresa"></label>
+      <label class="f"><span>Kontakt podaci</span><input id="f-kontakt"></label>
+    </div>
+    <div class="g2"><label class="f"><span>Uređaj predao (datum i ime)</span><input id="f-predao"></label></div>
+    <div class="g">
+      <div class="yn"><h2>Naplata</h2>${seg('naplata', ['DA', 'NE'])}</div>
+      <div class="yn"><h2>Status ugovora</h2>${seg('ugovor', ['DA', 'NE'])}</div>
+      <div class="yn"><h2>Garancija</h2>${seg('garancija', ['DA', 'NE'])}</div>
+    </div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Uređaji i brojači</div><div class="body">
+    <div class="rows" id="dev-rows"></div>
+    <div><button class="ghost" id="add-dev">+ Dodaj uređaj</button></div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Opis zahtjeva</div><div class="body"><textarea id="f-opisz" rows="3"></textarea></div></div>
+  <div class="sec"><div class="lab">Opis izvršene intervencije</div><div class="body"><textarea id="f-opisi" rows="6"></textarea></div></div>
+
+  <div class="sec"><div class="lab">Utrošeno</div><div class="body">
+    <div class="row-m muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:600"><span>Utrošeni materijal</span><span>Količina</span><span>Broj otpremnice</span><span></span></div>
+    <div class="rows" id="mat-rows"></div>
+    <div><button class="ghost" id="add-mat">+ Dodaj stavku</button></div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Putni troškovi</div><div class="body">
+    <div class="calc">Od BL do <input id="f-dest" style="width:180px"> <input id="f-km1" inputmode="decimal"> km, do BL <input id="f-km2" inputmode="decimal"> km</div>
+    <div class="calc">Ukupno <span class="sum" id="f-kmuk">0</span> km × tarifa <input id="f-tarifa" inputmode="decimal"> KM/km = <span class="sum" id="f-putni">0,00</span> KM</div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Status</div><div class="body">
+    <div>${seg('status', ['OBAVLJENA', 'DJELIMIČNO OBAVLJENA', 'NIJE OBAVLJENA', 'NIJE POTREBNA'])}</div>
+    <div class="yn"><h2>Intervencija</h2>${seg('interv', ['NA TERENU', 'SERVIS/KANCELARIJA'])}</div>
+  </div></div>
+
+  <div class="sec"><div class="lab">Ovjera (potpis)</div><div class="body">
+    <p class="muted" style="margin:0">Potpisi na ekranu dolaze u koraku 9.</p>
+    <label class="check"><input type="checkbox" id="f-kasnije"> Korisnik potpisuje kasnije (nalog ide u „Čeka potpis”)</label>
+  </div></div>
+
+  <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><span id="save-state"></span>
+    ${n.kreirao ? `<span class="muted" style="font-size:13px">Napravio: ${esc(n.kreirao)}${n.izmijenio ? ` · zadnja izmjena: ${esc(n.izmijenio)}` : ''}</span>` : ''}</div>`;
+
+  $('#f-poziv').value = n.pozivInterni || ''; $('#f-pozivx').value = n.pozivEksterni || '';
+  $('#f-datum').value = (n.datumIzdavanja || danas()).slice(0, 10);
+  $('#f-zahtjev').value = (n.zahtjevVrijeme || '').slice(0, 16);
+  $('#f-pocetak').value = (n.pocetakRada || '').slice(0, 16); $('#f-kraj').value = (n.zavrsetakRada || '').slice(0, 16);
+  vrijemeRucno = !!n.utrosenoRucno; $('#f-vrijeme').value = n.utrosenoVrijeme || '';
+  $('#f-klijent').value = n.klijentNaziv || ''; $('#f-lokacija').value = n.lokacija || '';
+  $('#f-adresa').value = n.adresa || ''; $('#f-kontakt').value = n.kontakt || ''; $('#f-predao').value = n.uredjajPredao || '';
+  setR('naplata', n.naplata); setR('ugovor', n.ugovor); setR('garancija', n.garancija); setR('status', n.status); setR('interv', n.intervencija);
+  $('#f-opisz').value = n.opisZahtjeva || ''; $('#f-opisi').value = n.opisIntervencije || '';
+  $('#f-dest').value = n.putDestinacija || ''; $('#f-km1').value = n.kmTamo ?? ''; $('#f-km2').value = n.kmNazad ?? '';
+  $('#f-tarifa').value = n.tarifaKm ?? (S.postavke.tarifaKm || '');
+  $('#f-kasnije').checked = !!n.potpisKasnije;
+
+  $('#f-nosilac').innerHTML = '<option value="">— izaberi —</option>' + S.nosioci.map(x => `<option value="${x.id}">${esc(x.ime)}</option>`).join('')
+    + (n.nosilacKorisnikId && !S.nosioci.some(x => x.id === n.nosilacKorisnikId) ? `<option value="${n.nosilacKorisnikId}">${esc(n.nosilacIme || '')}</option>` : '');
+  $('#f-nosilac').value = n.nosilacKorisnikId ? String(n.nosilacKorisnikId) : '';
+
+  renderDevRows(n.uredjaji.length ? n.uredjaji : [{}]);
+  renderMatRows(n.materijal.length ? n.materijal : [{}]);
+
+  $('#f-klijent').addEventListener('change', () => onKlijent(true));
+  $('#f-klijent').addEventListener('input', klijentHint);
+  $('#f-lokacija').addEventListener('change', onLok);
+  $('#f-lokacija').addEventListener('input', lokHint);
+  $('#f-vrijeme').addEventListener('change', () => { vrijemeRucno = !!$('#f-vrijeme').value.trim(); calcTime(); });
+  ['#f-pocetak', '#f-kraj'].forEach(s => $(s).addEventListener('input', calcTime));
+  ['#f-km1', '#f-km2', '#f-tarifa'].forEach(s => $(s).addEventListener('input', calcTravel));
+  $('#f-datum').addEventListener('change', autoGarancija);
+  $('#add-dev').onclick = () => { const d = collectDevs(); d.push({}); renderDevRows(d); };
+  $('#add-mat').onclick = () => { const m = collectMats(); m.push({}); renderMatRows(m); };
+  $('#save').onclick = save;
+
+  onKlijent(false); calcTime(); calcTravel();
+}
+
+// ---------- Klijent i jedinica ----------
+function klijentHint() {
+  const v = $('#f-klijent').value.trim(), h = $('#h-klijent');
+  if (!v) { h.textContent = ''; h.className = 'hint'; return; }
+  if (kByName(v)) { h.textContent = '✓ Klijent iz baze'; h.className = 'hint ok'; }
+  else { h.textContent = 'Klijent nije u bazi. Izaberite ga sa liste ili ga prvo dodajte u Klijentima.'; h.className = 'hint new'; }
+}
+async function onKlijent(korisnikMijenja) {
+  klijentHint();
+  const k = kByName($('#f-klijent').value);
+  S.jedinice = k ? (await fetch(`/api/klijenti/${k.id}`).then(r => r.json())).jedinice : [];
+  $('#dl-jedinice').innerHTML = S.jedinice.map(j => `<option value="${esc(j.naziv)}">${esc([j.mjesto, j.adresa].filter(Boolean).join(', '))}</option>`).join('');
+  if (k && korisnikMijenja) {
+    setR('ugovor', k.ugovor ? 'DA' : 'NE');
+    if (!jByName($('#f-lokacija').value)) {
+      if (S.jedinice.length === 1) { $('#f-lokacija').value = S.jedinice[0].naziv; onLok(); }
+      else { $('#f-lokacija').value = ''; $('#f-lokacija').focus(); }
+    }
+  }
+  lokHint();
+}
+function lokHint() {
+  const h = $('#h-lok'), k = kByName($('#f-klijent').value), v = $('#f-lokacija').value.trim();
+  if (!v) { h.textContent = k && S.jedinice.length > 1 ? `${S.jedinice.length} poslovnih jedinica, izaberite sa liste` : ''; h.className = 'hint'; return; }
+  if (jByName(v)) { h.textContent = '✓ Poslovna jedinica iz baze'; h.className = 'hint ok'; }
+  else { h.textContent = k ? 'Nova poslovna jedinica, biće dodana klijentu pri čuvanju' : ''; h.className = 'hint new'; }
+}
+function onLok() {
+  lokHint();
+  const j = jByName($('#f-lokacija').value);
+  if (!j) return;
+  $('#f-adresa').value = [j.adresa, [j.postanskiBroj, j.mjesto].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  $('#f-kontakt').value = [j.kontaktOsoba, j.telefon, j.email].filter(Boolean).join(', ');
+  $('#f-dest').value = j.mjesto || j.naziv || '';
+  $('#f-km1').value = j.kmOdBL || ''; $('#f-km2').value = j.kmOdBL || '';
+  calcTravel();
+}
+
+// ---------- Uređaji ----------
+const tipOptions = sel => '<option value="">— tip —</option>' + S.tipovi.map(t => `<option value="${t.id}" ${String(t.id) === String(sel) ? 'selected' : ''}>${esc(t.naziv)}</option>`).join('');
+function renderDevRows(list) {
+  $('#dev-rows').innerHTML = list.map((u, i) => `<div class="devcard" data-i="${i}" data-uid="${u.uredjajId || ''}">
+    <div class="row-d">
+      <label class="f"><span>Serijski broj</span><input class="d-ser mono" autocomplete="off" value="${esc(u.serijskiBroj || '')}"><span class="hint d-h"></span></label>
+      <label class="f"><span>Model uređaja</span><input class="d-mod" list="dl-modeli" value="${esc(u.model || '')}"></label>
+      <label class="f"><span>Inventurni broj</span><input class="d-inv mono" value="${esc(u.inventurniBroj || '')}"></label>
+      <label class="f"><span>Tip uređaja</span><select class="d-tip">${tipOptions(u.tipUredjajaId || '')}</select></label>
+      <button class="ghost x" title="Ukloni uređaj" style="margin-top:20px" ${list.length < 2 ? 'hidden' : ''}>✕</button></div>
+    <div class="cnt" hidden>
+      <div class="cnt-head"><h2 style="margin:0">Broj odštampanih strana</h2><label class="check"><input type="checkbox" class="d-mono" ${u.samoCrnoBijeli ? 'checked' : ''}> Samo crno-bijeli</label></div>
+      <div class="g">
+        <label class="f d-kol-w"><span>Kolor</span><input class="d-kol mono" inputmode="numeric" value="${u.kolor ?? ''}"></label>
+        <label class="f"><span>Crno-bijele</span><input class="d-cb mono" inputmode="numeric" value="${u.cb ?? ''}"></label>
+        <label class="f"><span>Ukupno</span><input class="d-uk mono" readonly></label>
+      </div>
+      <div class="prev d-prev"></div>
+    </div></div>`).join('');
+  $$('#dev-rows .devcard').forEach(r => {
+    const ser = r.querySelector('.d-ser');
+    ser.addEventListener('change', () => trazUredjaj(r, ser.value));
+    r.querySelector('.d-inv').addEventListener('change', e => { if (!ser.value.trim()) trazUredjaj(r, e.target.value); });
+    r.querySelector('.d-mod').addEventListener('change', e => {
+      const sel = r.querySelector('.d-tip'); if (sel.value) return;
+      const m = S.modeli.find(x => norm(x.model) === norm(e.target.value));
+      if (m?.tipUredjajaId) { sel.value = String(m.tipUredjajaId); r.querySelector('.d-mono').checked = m.samoCrnoBijeli; updateCnt(r); }
+    });
+    r.querySelector('.d-tip').addEventListener('change', () => updateCnt(r));
+    r.querySelector('.d-mono').addEventListener('change', () => updateCnt(r));
+    ['.d-kol', '.d-cb'].forEach(c => r.querySelector(c).addEventListener('input', () => updateCnt(r)));
+    r.querySelector('.x').onclick = () => { const d = collectDevs(); d.splice(+r.dataset.i, 1); renderDevRows(d.length ? d : [{}]); };
+    if (r.dataset.uid) { r.querySelector('.d-h').textContent = '✓ Uređaj iz baze'; r.querySelector('.d-h').className = 'hint d-h ok'; ucitajPrethodni(r); }
+    updateCnt(r);
+  });
+}
+async function trazUredjaj(r, broj) {
+  const h = r.querySelector('.d-h');
+  r.dataset.uid = ''; r.prethodni = null;
+  if (!broj.trim()) { h.textContent = ''; updateCnt(r); return; }
+  const res = await fetch('/api/uredjaji/po-broju?broj=' + encodeURIComponent(broj.trim()));
+  if (!res.ok) { h.textContent = 'Novi uređaj, biće dodan u bazu pri čuvanju'; h.className = 'hint d-h new'; updateCnt(r); return; }
+  const u = await res.json();
+  r.dataset.uid = u.id;
+  r.querySelector('.d-ser').value = u.serijskiBroj;
+  r.querySelector('.d-mod').value = u.model || '';
+  r.querySelector('.d-inv').value = u.inventurniBroj || '';
+  if (u.tipUredjajaId) r.querySelector('.d-tip').value = String(u.tipUredjajaId);
+  r.querySelector('.d-mono').checked = u.samoCrnoBijeli;
+  h.textContent = '✓ ' + [u.klijentNaziv, u.jedinicaNaziv].filter(Boolean).join(' · ');
+  h.className = 'hint d-h ok';
+  r.garancijaDo = u.garancijaDo;
+  if (u.klijentNaziv && !$('#f-klijent').value.trim()) {
+    $('#f-klijent').value = u.klijentNaziv;
+    await onKlijent(true);
+    if (u.jedinicaNaziv) { $('#f-lokacija').value = u.jedinicaNaziv; onLok(); }
+  }
+  autoGarancija();
+  await ucitajPrethodni(r);
+}
+async function ucitajPrethodni(r) {
+  const uid = r.dataset.uid; if (!uid) return;
+  r.prethodni = await fetch(`/api/nalozi/prethodni-brojac?uredjajId=${uid}${nalogId ? '&nalogId=' + nalogId : ''}`).then(x => x.json());
+  updateCnt(r);
+}
+function updateCnt(r) {
+  const tip = tipById(r.querySelector('.d-tip').value);
+  const show = !!tip?.pratiBrojac;
+  r.querySelector('.cnt').hidden = !show;
+  if (!show) return;
+  const mono = r.querySelector('.d-mono').checked;
+  r.querySelector('.d-kol-w').hidden = mono;
+  const kv = mono ? '' : r.querySelector('.d-kol').value, cv = r.querySelector('.d-cb').value;
+  r.querySelector('.d-uk').value = (kv || cv) ? num(kv) + num(cv) : '';
+  const p = r.prethodni, el = r.querySelector('.d-prev');
+  if (p && (p.kolor != null || p.cb != null)) {
+    let t = `Prethodno stanje (${fD(p.datum) || '—'}${p.izNaloga ? ', nalog ' + p.izNaloga : ''}): ` + (mono ? '' : `kolor ${p.kolor ?? '—'}, `) + `crno-bijele ${p.cb ?? '—'}.`;
+    const k = num(kv), c = num(cv);
+    if (k || c) t += ' Razlika: ' + (mono ? '' : `kolor ${k && p.kolor != null ? k - p.kolor : '—'}, `) + `crno-bijele ${c && p.cb != null ? c - p.cb : '—'}.`;
+    el.textContent = t;
+  } else el.textContent = '';
+}
+function autoGarancija() {
+  const r = $('#dev-rows .devcard'); if (!r?.garancijaDo) return;
+  setR('garancija', r.garancijaDo.slice(0, 10) >= ($('#f-datum').value || danas()) ? 'DA' : 'NE');
+}
+function collectDevs() {
+  return $$('#dev-rows .devcard').map(r => {
+    const show = !r.querySelector('.cnt').hidden, mono = r.querySelector('.d-mono').checked;
+    const v = c => r.querySelector(c).value.trim();
+    return {
+      uredjajId: r.dataset.uid ? +r.dataset.uid : null,
+      serijskiBroj: v('.d-ser'), model: v('.d-mod'), inventurniBroj: v('.d-inv'),
+      tipUredjajaId: v('.d-tip') ? +v('.d-tip') : null, samoCrnoBijeli: show && mono,
+      kolor: show && !mono && v('.d-kol') !== '' ? parseInt(v('.d-kol'), 10) : null,
+      cb: show && v('.d-cb') !== '' ? parseInt(v('.d-cb'), 10) : null
+    };
+  });
+}
+
+// ---------- Materijal ----------
+function renderMatRows(list) {
+  $('#mat-rows').innerHTML = list.map((m, i) => `<div class="row-m" data-i="${i}">
+    <input class="m-n" list="dl-materijal" aria-label="Materijal" value="${esc(m.naziv || '')}">
+    <input class="m-k" inputmode="decimal" aria-label="Količina" value="${m.kolicina ?? ''}">
+    <input class="m-o" aria-label="Broj otpremnice" value="${esc(m.brojOtpremnice || '')}">
+    <button class="ghost x" title="Ukloni">✕</button></div>`).join('');
+  $$('#mat-rows .row-m').forEach(r => r.querySelector('.x').onclick = () => { const m = collectMats(); m.splice(+r.dataset.i, 1); renderMatRows(m.length ? m : [{}]); });
+}
+const collectMats = () => $$('#mat-rows .row-m').map(r => ({
+  naziv: r.querySelector('.m-n').value.trim(),
+  kolicina: r.querySelector('.m-k').value.trim() === '' ? null : num(r.querySelector('.m-k').value),
+  brojOtpremnice: r.querySelector('.m-o').value.trim()
+}));
+
+// ---------- Računanje ----------
+function calcTime() {
+  const a = $('#f-pocetak').value, b = $('#f-kraj').value; let t = '';
+  if (a && b) { const m = Math.round((new Date(b) - new Date(a)) / 60000); t = m < 0 ? 'kraj je prije početka' : `${Math.floor(m / 60)} h ${m % 60} min`; }
+  const f = $('#f-vrijeme'), h = $('#h-vrijeme');
+  if (!vrijemeRucno) { f.value = t; h.textContent = t ? 'Izračunato iz početka i završetka; možete prepraviti.' : ''; }
+  else h.textContent = t && t !== f.value ? `Upisano ručno (po vremenu početka i završetka: ${t}).` : 'Upisano ručno.';
+}
+function calcTravel() {
+  const km = num($('#f-km1').value) + num($('#f-km2').value), t = num($('#f-tarifa').value);
+  $('#f-kmuk').textContent = String(Math.round(km * 10) / 10).replace('.', ',');
+  $('#f-putni').textContent = (km * t).toFixed(2).replace('.', ',');
+}
+
+// ---------- Čuvanje ----------
+const dt = v => v ? v + ':00' : null;   // datetime-local → ISO sa sekundama
+const broj = v => { const s = String(v ?? '').trim(); return s === '' ? null : num(s); };
+async function save() {
+  const k = kByName($('#f-klijent').value);
+  if (!k) { $('#save-state').innerHTML = '<span class="greska">Izaberite korisnika (klijenta) sa liste.</span>'; $('#f-klijent').focus(); return; }
+  const j = jByName($('#f-lokacija').value);
+  const tijelo = {
+    pozivInterni: $('#f-poziv').value.trim() || null, pozivEksterni: $('#f-pozivx').value.trim() || null,
+    datumIzdavanja: $('#f-datum').value, zahtjevVrijeme: dt($('#f-zahtjev').value),
+    pocetakRada: dt($('#f-pocetak').value), zavrsetakRada: dt($('#f-kraj').value),
+    utrosenoVrijeme: $('#f-vrijeme').value.trim() || null, utrosenoRucno: vrijemeRucno,
+    klijentId: k.id, poslovnaJedinicaId: j ? j.id : null,
+    lokacija: $('#f-lokacija').value.trim() || null, adresa: $('#f-adresa').value.trim() || null, kontakt: $('#f-kontakt').value.trim() || null,
+    naplata: getR('naplata'), ugovor: getR('ugovor'), garancija: getR('garancija'),
+    uredjajPredao: $('#f-predao').value.trim() || null,
+    nosilacKorisnikId: $('#f-nosilac').value ? +$('#f-nosilac').value : null,
+    opisZahtjeva: $('#f-opisz').value, opisIntervencije: $('#f-opisi').value,
+    putDestinacija: $('#f-dest').value.trim() || null, kmTamo: broj($('#f-km1').value), kmNazad: broj($('#f-km2').value), tarifaKm: broj($('#f-tarifa').value),
+    status: getR('status'), intervencija: getR('interv'), potpisKasnije: $('#f-kasnije').checked,
+    uredjaji: collectDevs(), materijal: collectMats()
+  };
+  const b = $('#save'); b.disabled = true; $('#save-state').textContent = 'Čuvam…';
+  try {
+    const r = await fetch(nalogId ? `/api/nalozi/${nalogId}` : '/api/nalozi', {
+      method: nalogId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tijelo)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || (d.errors ? 'Neispravan unos: ' + Object.keys(d.errors).join(', ') : 'Nije sačuvano.'))}</span>`; return; }
+    nalogId = String(d.id);
+    history.replaceState(null, '', `nalog.html?id=${d.id}`);
+    await ucitajNalog();
+    $('#save-state').innerHTML = `<span class="chip ok">Nalog ${esc(d.broj)} je sačuvan</span>`;
+    // Svježi šifarnici (novi model, materijal, jedinica)
+    [S.modeli, S.materijal] = await Promise.all([fetch('/api/uredjaji/modeli').then(x => x.json()), fetch('/api/materijal').then(x => x.json())]);
+    popuniListe();
+  } finally { const bb = $('#save'); if (bb) bb.disabled = false; }
+}
+
+async function ucitajNalog() {
+  if (nalogId) {
+    const r = await fetch(`/api/nalozi/${nalogId}`);
+    if (!r.ok) { $('#main').innerHTML = '<div class="card">Nalog ne postoji. <a href="/">Početna</a></div>'; return; }
+    cur = await r.json();
+  } else {
+    const ja = window.ja;
+    cur = { datumIzdavanja: danas(), zahtjevVrijeme: sada(), uredjaji: [], materijal: [],
+            nosilacKorisnikId: S.nosioci.find(x => x.korisnickiNalog?.toLowerCase() === (ja.nalog || '').toLowerCase())?.id || null };
+  }
+  document.title = (cur.broj ? `Nalog ${cur.broj}` : 'Novi nalog') + ' – Tehnotim';
+  buildForm();
+}
+
+function popuniListe() {
+  $('#dl-klijenti').innerHTML = S.klijenti.map(k => `<option value="${esc(k.naziv)}">`).join('');
+  $('#dl-modeli').innerHTML = S.modeli.map(m => `<option value="${esc(m.model)}">`).join('');
+  $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">`).join('');
+}
+
+(async () => {
+  window.ja = await ucitajZaglavlje(nalogId ? '' : 'novi');
+  if (!ja.registrovan) return;
+  [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke] = await Promise.all(
+    ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/materijal', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));
+  popuniListe();
+  await ucitajNalog();
+})();
+</script>
+</body>
+</html>

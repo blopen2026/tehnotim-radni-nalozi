@@ -13,6 +13,13 @@
     <p class="muted" id="pozdrav"></p>
   </div>
   <div class="card">
+    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0">Posljednji nalozi</h2><a href="nalog.html"><button class="primary">+ Novi nalog</button></a></div>
+    <div class="tablebox" style="margin-top:10px"><table>
+      <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Faza</th></tr></thead>
+      <tbody id="nalozi"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="card">
     <h2>Stanje sistema</h2>
     <div id="status">Provjeravam…</div>
   </div>
@@ -28,6 +35,18 @@
   document.getElementById('pozdrav').innerHTML =
     `Prijavljeni ste kao <b class="mono">${esc(ja.nalog)}</b>, uloga: <b>${NAZIVI_ULOGA[ja.uloga]}</b>.` +
     (ja.uloga === 'administrator' && !ja.ime ? ' Upišite svoje ime u meniju Korisnici.' : '');
+
+  const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+  const BOJE = { u_radu: '', ceka_potpis: 'warn', zavrsen: 'ok', novo_iz_tiketa: '' };
+  const nalozi = await fetch('/api/nalozi').then(r => r.json());
+  document.getElementById('nalozi').innerHTML = nalozi.length ? nalozi.slice(0, 15).map(n => `<tr class="klik" data-id="${n.id}">
+      <td class="mono">${esc(n.broj)}${n.pozivEksterni ? `<div class="muted">tiket ${esc(n.pozivEksterni)}</div>` : ''}</td>
+      <td>${n.datumIzdavanja.slice(0, 10).split('-').reverse().join('.')}.</td>
+      <td>${esc(n.klijentNaziv)}<div class="muted">${esc(n.lokacija || '')}</div></td>
+      <td>${esc(n.nosilacIme || '')}</td>
+      <td><span class="chip ${BOJE[n.faza]}" style="${BOJE[n.faza] ? '' : 'background:var(--sunk)'}">${FAZE[n.faza]}</span></td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted">Još nema naloga. Kliknite „+ Novi nalog”.</td></tr>';
+  document.querySelectorAll('#nalozi tr[data-id]').forEach(tr => tr.onclick = () => location.href = `nalog.html?id=${tr.dataset.id}`);
 
   const s = await fetch('/api/status').then(r => r.json());
   const chip = (ok, t) => `<span class="chip ${ok ? 'ok' : 'bad'}">${esc(t)}</span>`;
