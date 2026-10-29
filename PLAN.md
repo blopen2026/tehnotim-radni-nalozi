@@ -6,7 +6,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 ## Faza 1 – Osnova (serviseri počinju raditi u novoj aplikaciji)
 
 - [x] 1. (2026-10-29) Postavljanje računara za razvoj (.NET SDK, SQL Server Express, Git) – vidi `docs/postavljanje-racunara.md`
-- [ ] 2. Prazan ASP.NET Core projekat koji se pokreće lokalno – uputstvo: `docs/korak-02-pokretanje.md`
+- [x] 2. (2026-10-29) Prazan ASP.NET Core projekat koji se pokreće lokalno – uputstvo: `docs/korak-02-pokretanje.md`
 - [ ] 3. Baza: tabele iz specifikacije (klijenti, poslovne jedinice, uređaji, tipovi, materijal, serviseri, nalozi, postavke)
 - [ ] 4. Prijava korisnika (Windows/AD) i uloge: serviser, kancelarija, administrator
 - [ ] 5. Šifarnici: serviseri, tipovi uređaja, materijal, tarifa, numeracija
