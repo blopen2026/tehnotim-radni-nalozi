@@ -9,7 +9,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 2. (2026-10-29) Prazan ASP.NET Core projekat koji se pokreće lokalno – uputstvo: `docs/korak-02-pokretanje.md`
 - [x] 3. (2026-10-29) Baza: tabele iz specifikacije (klijenti, poslovne jedinice, uređaji, tipovi, materijal, serviseri, nalozi, postavke) – uputstvo: `docs/korak-03-baza.md`
 - [x] 4. (2026-10-29) Prijava korisnika (Windows/AD) i uloge: serviser, kancelarija, administrator – uputstvo: `docs/korak-04-prijava.md`
-- [ ] 5. Šifarnici: tipovi uređaja, materijal, nosioci naloga, tarifa i podaci firme, numeracija – uputstvo: `docs/korak-05-sifarnici.md`
+- [x] 5. (2026-10-29) Šifarnici: tipovi uređaja, materijal, nosioci naloga, tarifa i podaci firme, numeracija – uputstvo: `docs/korak-05-sifarnici.md`
 - [ ] 6. Klijenti i poslovne jedinice, uvoz iz Excela
 - [ ] 7. Uređaji
 - [ ] 8. Forma naloga (prema prototipu), čuvanje, lista naloga, pretraga, faze
