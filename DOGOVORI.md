@@ -1,6 +1,16 @@
 # Dogovori i odluke
 
-Ovaj fajl se čita na početku svakog rada na projektu. X## 2026-10-29 – Novi razvojni laptop
+Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
+
+## 2026-10-29 – Kako se mijenja baza
+
+- Baza se opisuje SQL skriptama u `src/Tehnotim.RadniNalozi/Baza/Skripte` (001, 002, …); aplikacija ih sama izvršava pri pokretanju.
+- Izvršena skripta se nikad ne mijenja; svaka izmjena = nova skripta.
+- Nalog čuva i kopiju podataka kakvi su bili u trenutku naloga (naziv klijenta, lokacija, adresa, kontakt, model…),
+  da stari nalozi i PDF ostanu isti i kad se podaci u bazi kasnije promijene.
+- Broj naloga = redni broj u godini + godina (0001/2026); brojač po godini u tabeli `BrojacNaloga`.
+
+## 2026-10-29 – Novi razvojni laptop
 
 - Razvoj se seli na novi laptop sa čistim Windows 11 (stari računar ima SQL 2014, BarTender 2019 i neuspjelu instalaciju 2025).
 - Na laptopu: SQL Server 2022 Express, instanca `SQL2022`, Windows autentifikacija; aplikacija lokalno koristi `.\SQL2022`.
