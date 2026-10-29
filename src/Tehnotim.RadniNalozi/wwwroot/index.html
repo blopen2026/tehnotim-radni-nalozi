@@ -34,6 +34,7 @@
     let html = `<div class="row"><span>Aplikacija</span>${chip(true, 'radi')}</div>`;
     html += `<div class="row"><span>Baza (SQL Server)</span>${chip(s.baza === 'povezana', s.baza)}</div>`;
     if (s.sqlServer) html += `<p class="muted">${s.sqlServer}</p>`;
+    if (s.vrstaVeze) html += `<div class="row"><span>Vrsta veze</span><span>${s.vrstaVeze}</span></div><div class="row"><span>Šifrovanje</span><span>${s.sifrovanje}</span></div>`;
     if (s.greska) html += `<p>Poruka greške (pošaljite je u razgovoru):</p><pre>${s.greska.replace(/</g, '&lt;')}</pre>`;
     document.getElementById('status').innerHTML = html;
   }).catch(e => {

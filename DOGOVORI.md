@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – Upozorenje TLS 1.0
+
+- Na razvojnom računaru SqlClient javlja: „The negotiated TLS 1.0 is an insecure protocol”.
+- Lokalno nije rizik (veza ne izlazi iz računara), ali **prije instalacije na server obavezno**:
+  veza aplikacija ↔ SQL Server mora ići preko TLS 1.2 (ažuran SQL Server + TLS 1.2 uključen u Windowsu).
+- Stranica `/api/status` prikazuje vrstu veze i šifrovanje radi provjere.
+
 ## 2026-10-29 – Početak
 
 - Server: Windows; aplikacija ASP.NET Core u IIS-u, baza SQL Server Express.
