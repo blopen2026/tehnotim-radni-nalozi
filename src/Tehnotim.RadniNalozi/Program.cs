@@ -1,45 +1,69 @@
 using Microsoft.Data.SqlClient;
+using Tehnotim.RadniNalozi.Baza;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+
+var connectionString = app.Configuration.GetConnectionString("Baza") ?? "";
+
+// Pri pokretanju: napravi bazu i izvrši nove SQL skripte (Baza/Skripte)
+string? greskaPriPripremi = null;
+try
+{
+    await Migracije.PrimijeniAsync(connectionString, app.Logger);
+}
+catch (Exception ex)
+{
+    greskaPriPripremi = ex.Message;
+    app.Logger.LogError(ex, "Baza nije pripremljena");
+}
 
 // Početna stranica i ostali fajlovi iz foldera wwwroot
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// Provjera: radi li aplikacija i može li se spojiti na SQL Server
-app.MapGet("/api/status", async (IConfiguration config) =>
+// Provjera: radi li aplikacija, vidi li bazu i koje tabele i skripte postoje
+app.MapGet("/api/status", async () =>
 {
-    var connectionString = config.GetConnectionString("Baza");
     try
     {
         await using var conn = new SqlConnection(connectionString);
         await conn.OpenAsync();
-        await using var cmd = new SqlCommand("SELECT @@VERSION", conn);
-        var verzija = (await cmd.ExecuteScalarAsync()) as string ?? "";
 
-        // Kako je ova veza ostvarena: vrsta veze (Shared memory / TCP) i da li je šifrovana
-        string? vrstaVeze = null, sifrovanje = null;
-        try
+        string sqlServer, imeBaze;
+        await using (var cmd = new SqlCommand("SELECT @@VERSION, DB_NAME()", conn))
+        await using (var r = await cmd.ExecuteReaderAsync())
         {
-            await using var cmd2 = new SqlCommand(
-                "SELECT net_transport, encrypt_option FROM sys.dm_exec_connections WHERE session_id = @@SPID", conn);
-            await using var r = await cmd2.ExecuteReaderAsync();
-            if (await r.ReadAsync())
-            {
-                vrstaVeze = r.GetString(0);
-                sifrovanje = r.GetString(1);
-            }
+            await r.ReadAsync();
+            sqlServer = r.GetString(0).Split('\n')[0].Trim();
+            imeBaze = r.GetString(1);
         }
-        catch { /* korisnik nema pravo čitanja ovog pregleda; nije bitno za rad */ }
+
+        var tabele = new List<string>();
+        await using (var cmd = new SqlCommand("SELECT name FROM sys.tables ORDER BY name", conn))
+        await using (var r = await cmd.ExecuteReaderAsync())
+        {
+            while (await r.ReadAsync()) tabele.Add(r.GetString(0));
+        }
+
+        var skripte = new List<object>();
+        if (tabele.Contains("SemaVerzija"))
+        {
+            await using var cmd = new SqlCommand("SELECT Skripta, Primijenjeno FROM dbo.SemaVerzija ORDER BY Skripta", conn);
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+                skripte.Add(new { skripta = r.GetString(0), primijenjeno = r.GetDateTime(1) });
+        }
 
         return Results.Ok(new
         {
             aplikacija = "radi",
             baza = "povezana",
-            sqlServer = verzija.Split('\n')[0].Trim(),
-            vrstaVeze,
-            sifrovanje
+            sqlServer,
+            imeBaze,
+            tabele,
+            skripte,
+            greska = greskaPriPripremi
         });
     }
     catch (Exception ex)
@@ -48,7 +72,7 @@ app.MapGet("/api/status", async (IConfiguration config) =>
         {
             aplikacija = "radi",
             baza = "nije povezana",
-            greska = ex.Message
+            greska = greskaPriPripremi ?? ex.Message
         });
     }
 });

@@ -1,8 +1,6 @@
 # Dogovori i odluke
 
-Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
-
-## 2026-10-29 – Novi razvojni laptop
+Ovaj fajl se čita na početku svakog rada na projektu. X## 2026-10-29 – Novi razvojni laptop
 
 - Razvoj se seli na novi laptop sa čistim Windows 11 (stari računar ima SQL 2014, BarTender 2019 i neuspjelu instalaciju 2025).
 - Na laptopu: SQL Server 2022 Express, instanca `SQL2022`, Windows autentifikacija; aplikacija lokalno koristi `.\SQL2022`.

@@ -11,4 +11,9 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- SQL skripte za bazu idu uz aplikaciju; izvršavaju se pri pokretanju -->
+    <None Update="Baza\Skripte\*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

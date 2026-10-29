@@ -8,14 +8,16 @@
   :root{--bg:#eef1f5;--surface:#fff;--line:#cfd6df;--ink:#16212d;--muted:#5a6676;--band:#1d2b3b;--ok:#1d7a4a;--ok-bg:#dcf1e5;--bad:#b3261e;--bad-bg:#fbe3e1}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
   header{background:var(--band);color:#fff;padding:14px 20px;font-weight:700;font-size:18px}
-  main{max-width:640px;margin:32px auto;padding:0 16px}
+  main{max-width:720px;margin:32px auto;padding:0 16px;display:grid;gap:16px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px}
-  h1{font-size:22px;margin:0 0 6px}
-  .row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
-  .row:first-of-type{border-top:0}
+  h1{font-size:22px;margin:0 0 6px} h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
   .chip{font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px}
   .ok{background:var(--ok-bg);color:var(--ok)} .bad{background:var(--bad-bg);color:var(--bad)}
   .muted{color:var(--muted);font-size:13px}
+  .tabele{display:flex;flex-wrap:wrap;gap:6px}
+  .tabele span{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font:13px Consolas,monospace}
   pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;font-size:12px}
 </style>
 </head>
@@ -23,20 +25,32 @@
 <header>Tehnotim · Radni nalozi</header>
 <main>
   <div class="card">
-    <h1>Korak 2: aplikacija se pokreće</h1>
-    <p class="muted">Ova stranica provjerava da li aplikacija radi i da li vidi SQL Server Express.</p>
+    <h1>Korak 3: baza</h1>
+    <p class="muted">Aplikacija pri pokretanju sama pravi bazu i tabele. Ova stranica pokazuje šta je napravljeno.</p>
     <div id="status">Provjeravam…</div>
   </div>
+  <div class="card" id="tabele-card" hidden><h2>Tabele u bazi</h2><div class="tabele" id="tabele"></div></div>
+  <div class="card" id="skripte-card" hidden><h2>Izvršene skripte</h2><div id="skripte"></div></div>
 </main>
 <script>
+  const esc = t => String(t ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   fetch('/api/status').then(r => r.json()).then(s => {
-    const chip = (ok, t) => `<span class="chip ${ok ? 'ok' : 'bad'}">${t}</span>`;
+    const chip = (ok, t) => `<span class="chip ${ok ? 'ok' : 'bad'}">${esc(t)}</span>`;
     let html = `<div class="row"><span>Aplikacija</span>${chip(true, 'radi')}</div>`;
-    html += `<div class="row"><span>Baza (SQL Server)</span>${chip(s.baza === 'povezana', s.baza)}</div>`;
-    if (s.sqlServer) html += `<p class="muted">${s.sqlServer}</p>`;
-    if (s.vrstaVeze) html += `<div class="row"><span>Vrsta veze</span><span>${s.vrstaVeze}</span></div><div class="row"><span>Šifrovanje</span><span>${s.sifrovanje}</span></div>`;
-    if (s.greska) html += `<p>Poruka greške (pošaljite je u razgovoru):</p><pre>${s.greska.replace(/</g, '&lt;')}</pre>`;
+    html += `<div class="row"><span>SQL Server</span>${chip(s.baza === 'povezana', s.baza)}</div>`;
+    if (s.imeBaze) html += `<div class="row"><span>Baza</span><b>${esc(s.imeBaze)}</b></div>`;
+    if (s.sqlServer) html += `<p class="muted">${esc(s.sqlServer)}</p>`;
+    if (s.greska) html += `<p>Poruka greške (pošaljite je u razgovoru):</p><pre>${esc(s.greska)}</pre>`;
     document.getElementById('status').innerHTML = html;
+    if (s.tabele && s.tabele.length) {
+      document.getElementById('tabele').innerHTML = s.tabele.map(t => `<span>${esc(t)}</span>`).join('');
+      document.getElementById('tabele-card').hidden = false;
+    }
+    if (s.skripte && s.skripte.length) {
+      document.getElementById('skripte').innerHTML = s.skripte.map(k =>
+        `<div class="row"><span style="font-family:Consolas,monospace">${esc(k.skripta)}</span><span class="muted">${new Date(k.primijenjeno + 'Z').toLocaleString('bs-BA')}</span></div>`).join('');
+      document.getElementById('skripte-card').hidden = false;
+    }
   }).catch(e => {
     document.getElementById('status').textContent = 'Aplikacija ne odgovara: ' + e;
   });
