@@ -2,6 +2,11 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Interni broj zahtjeva
+
+- U listama naloga ispod broja naloga prikazuje se **interni** broj zahtjeva (ID tiketa u ServiceDesk Plus) – to je veza s tiketing sistemom.
+  Eksterni broj (tiket klijenta) vidi se u nalogu i na PDF-u.
+
 ## 2026-10-29 – Klijenti i uvoz
 
 - Excel/CSV čita server (ClosedXML), ne preglednik – uvoz ne zavisi od interneta; podržani .xlsx i .csv (stari .xls sačuvati kao .xlsx).
