@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – Prijava i uloge
+
+- Firma ima domen; prijava ide domenskim nalogom (Windows/Negotiate), bez posebnih lozinki.
+- Uloge: serviser (nalozi), kancelarija (+ klijenti, uređaji, uvoz), administrator (+ korisnici, postavke).
+- Uloga se vodi u tabeli `Korisnik`; prvi korisnik koji otvori aplikaciju dok je tabela prazna postaje administrator.
+- Mora ostati bar jedan aktivan administrator.
+
 ## 2026-10-29 – Kako se mijenja baza
 
 - Baza se opisuje SQL skriptama u `src/Tehnotim.RadniNalozi/Baza/Skripte` (001, 002, …); aplikacija ih sama izvršava pri pokretanju.

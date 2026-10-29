@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Korisnici – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Korisnici</h1>
+    <p class="muted">Ko smije koristiti aplikaciju i s kojom ulogom. Prijava ide domenskim nalogom, lozinke se ovdje ne vode.</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Nalog</th><th>Ime i prezime</th><th>Uloga</th><th>Stanje</th><th>Zadnja prijava</th></tr></thead>
+      <tbody id="lista"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2 id="forma-naslov">Novi korisnik</h2>
+    <div class="grid">
+      <label class="f"><span>Domenski nalog</span><input id="f-nalog" class="mono" placeholder="TEHNOTIM\marko"></label>
+      <label class="f"><span>Ime i prezime</span><input id="f-ime"></label>
+      <label class="f"><span>E-mail</span><input id="f-email" type="email"></label>
+      <label class="f"><span>Uloga</span>
+        <select id="f-uloga">
+          <option value="serviser">Serviser – pravi i uređuje naloge</option>
+          <option value="kancelarija">Kancelarija – i klijenti, uvoz</option>
+          <option value="administrator">Administrator – sve, i korisnici</option>
+        </select></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="f-aktivan" checked style="width:auto"> Aktivan (smije koristiti aplikaciju)</label>
+    <div class="akcije">
+      <button class="primary" id="sacuvaj">Sačuvaj</button>
+      <button id="odustani" hidden>Odustani</button>
+      <span id="poruka"></span>
+    </div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+let urediId = null;
+const $ = s => document.querySelector(s);
+
+async function ucitaj() {
+  const r = await fetch('/api/korisnici');
+  if (!r.ok) { $('#lista').innerHTML = '<tr><td colspan="5" class="greska">Samo administrator vidi korisnike.</td></tr>'; return; }
+  const lista = await r.json();
+  $('#lista').innerHTML = lista.map(k => `<tr class="klik" data-id="${k.id}">
+      <td class="mono">${esc(k.korisnickiNalog)}</td>
+      <td>${esc(k.imePrezime || '')}</td>
+      <td>${NAZIVI_ULOGA[k.uloga]}</td>
+      <td>${k.aktivan ? '<span class="chip ok">aktivan</span>' : '<span class="chip bad">isključen</span>'}</td>
+      <td class="muted">${k.zadnjaPrijava ? new Date(k.zadnjaPrijava + 'Z').toLocaleString('bs-BA') : '—'}</td></tr>`).join('');
+  document.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => uredi(lista.find(k => k.id == tr.dataset.id)));
+}
+
+function uredi(k) {
+  urediId = k ? k.id : null;
+  $('#forma-naslov').textContent = k ? 'Izmjena korisnika' : 'Novi korisnik';
+  $('#f-nalog').value = k?.korisnickiNalog || '';
+  $('#f-ime').value = k?.imePrezime || '';
+  $('#f-email').value = k?.email || '';
+  $('#f-uloga').value = k?.uloga || 'serviser';
+  $('#f-aktivan').checked = k ? k.aktivan : true;
+  $('#odustani').hidden = !k;
+  $('#poruka').textContent = '';
+  $('#f-nalog').focus();
+}
+
+$('#odustani').onclick = () => uredi(null);
+$('#sacuvaj').onclick = async () => {
+  const unos = {
+    korisnickiNalog: $('#f-nalog').value.trim(),
+    imePrezime: $('#f-ime').value.trim(),
+    email: $('#f-email').value.trim(),
+    uloga: $('#f-uloga').value,
+    aktivan: $('#f-aktivan').checked
+  };
+  const r = await fetch(urediId ? `/api/korisnici/${urediId}` : '/api/korisnici', {
+    method: urediId ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(unos)
+  });
+  if (r.ok) { uredi(null); $('#poruka').innerHTML = '<span class="chip ok">Sačuvano</span>'; ucitaj(); }
+  else {
+    const g = await r.json().catch(() => ({}));
+    $('#poruka').innerHTML = `<span class="greska">${esc(g.greska || 'Nije sačuvano.')}</span>`;
+  }
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('korisnici');
+  if (!ja.registrovan) return;
+  ucitaj();
+})();
+</script>
+</body>
+</html>
