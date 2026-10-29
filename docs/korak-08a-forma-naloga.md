@@ -6,6 +6,7 @@ Pri čuvanju (sve u jednoj transakciji):
 
 - broj naloga se dodjeljuje pri prvom čuvanju (`0001/2026`), u godini datuma izdavanja; dva korisnika ne mogu dobiti isti broj;
 - klijent mora postojati u bazi (bira se sa liste); **nova poslovna jedinica** upisana u nalog dodaje se klijentu;
+  iz polja „Kontakt podaci” nova jedinica dobija posebno kontakt osobu, telefon(e) i e-mail;
 - **uređaji**: poznati serijski broj se dopunjava (model, inventurni broj, tip), nepoznat se dodaje klijentu i jedinici;
 - **brojač uređaja** se ažurira samo iz naloga s datumom jednakim ili novijim od zadnjeg očitanja;
 - **materijal** koji nije u šifarniku dodaje se sam;

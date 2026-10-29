@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Tehnotim.RadniNalozi.Prijava;
@@ -86,6 +87,22 @@ public static class NaloziApi
     }
 
     private static string? P(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static readonly Regex TelefonRx = new(@"\+?\d[\d\s/\-]{4,}\d", RegexOptions.Compiled);
+    private static readonly Regex EmailRx = new(@"[^\s,;]+@[^\s,;]+\.[^\s,;]+", RegexOptions.Compiled);
+
+    /// <summary>„Marko Marković, 065 123 456, marko@firma.ba” → (Marko Marković, 065 123 456, marko@firma.ba)</summary>
+    public static (string? Osoba, string? Telefon, string? Email) RazdvojiKontakt(string? kontakt)
+    {
+        if (string.IsNullOrWhiteSpace(kontakt)) return (null, null, null);
+        var emailovi = EmailRx.Matches(kontakt).Select(m => m.Value).ToList();
+        var bezEmaila = EmailRx.Replace(kontakt, " ");
+        var telefoni = TelefonRx.Matches(bezEmaila).Select(m => Regex.Replace(m.Value.Trim(), @"\s+", " ")).ToList();
+        var ostatak = TelefonRx.Replace(bezEmaila, " ");
+        ostatak = Regex.Replace(ostatak, @"(?i)\b(tel|telefon|mob|mobitel|e-?mail|kontakt)\b\.?:?", " ");
+        ostatak = Regex.Replace(ostatak, @"[\s,;/]+", " ").Trim(' ', ',', ';', '-', ':');
+        return (P(ostatak), telefoni.Count > 0 ? string.Join(", ", telefoni) : null, emailovi.Count > 0 ? string.Join(", ", emailovi) : null);
+    }
     private static string? DaNe(string? s) => s is "DA" or "NE" ? s : null;
     private static IResult Greska(string poruka) => Results.BadRequest(new { greska = poruka });
 
@@ -134,11 +151,16 @@ public static class NaloziApi
         else if (P(u.Lokacija) is string lok)
         {
             jedinicaId = await c.ExecuteScalarAsync<int?>(
-                "SELECT Id FROM dbo.PoslovnaJedinica WHERE KlijentId = @k AND Naziv = @lok", new { k = u.KlijentId, lok }, tx)
-                ?? await c.ExecuteScalarAsync<int>(@"
-                    INSERT INTO dbo.PoslovnaJedinica (KlijentId, Naziv, Mjesto, Adresa, KmOdBL)
-                    OUTPUT INSERTED.Id VALUES (@k, @lok, @mjesto, @adresa, @km)",
-                    new { k = u.KlijentId, lok, mjesto = P(u.PutDestinacija), adresa = P(u.Adresa), km = u.KmTamo ?? 0 }, tx);
+                "SELECT Id FROM dbo.PoslovnaJedinica WHERE KlijentId = @k AND Naziv = @lok", new { k = u.KlijentId, lok }, tx);
+            if (jedinicaId is null)
+            {
+                // Nova jedinica: iz polja „Kontakt podaci” razdvoji telefone, e-mail i ime kontakt osobe
+                var (osoba, telefon, email) = RazdvojiKontakt(u.Kontakt);
+                jedinicaId = await c.ExecuteScalarAsync<int>(@"
+                    INSERT INTO dbo.PoslovnaJedinica (KlijentId, Naziv, Mjesto, Adresa, KontaktOsoba, Telefon, Email, KmOdBL)
+                    OUTPUT INSERTED.Id VALUES (@k, @lok, @mjesto, @adresa, @osoba, @telefon, @email, @km)",
+                    new { k = u.KlijentId, lok, mjesto = P(u.PutDestinacija), adresa = P(u.Adresa), osoba, telefon, email, km = u.KmTamo ?? 0 }, tx);
+            }
         }
 
         // Nosilac
