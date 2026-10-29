@@ -2,6 +2,14 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – SQL Server na razvojnom računaru
+
+- Razvojni računar ima tri instance: `BARTENDER` (program BarTender – ne dirati), `SQLEXPRESS` (SQL Server 2014 RTM – ne koristiti, ne dirati),
+  `SQLEXPRESS01` (SQL Server 2025 Express – koristi ova aplikacija).
+- Lokalna veza je u `appsettings.Development.json` (važi kad se pokreće sa `dotnet run`).
+  Veza za server ide u `appsettings.json` / postavke servera pri instalaciji.
+- Za server: SQL Server 2019 ili noviji, TLS 1.2.
+
 ## 2026-10-29 – Upozorenje TLS 1.0
 
 - Na razvojnom računaru SqlClient javlja: „The negotiated TLS 1.0 is an insecure protocol”.
