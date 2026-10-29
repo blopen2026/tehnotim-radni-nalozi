@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
 using Tehnotim.RadniNalozi.Baza;
 using Tehnotim.RadniNalozi.Prijava;
+using Tehnotim.RadniNalozi.Sifarnici;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Baza") ?? "";
@@ -69,6 +70,9 @@ korisniciApi.MapPut("/{id:int}", async (Korisnici k, int id, KorisnikUnos unos) 
     var greska = await k.SacuvajAsync(id, unos);
     return greska is null ? Results.Ok() : Results.BadRequest(new { greska });
 });
+
+// Šifarnici: tipovi uređaja, materijal, postavke, numeracija, nosioci naloga
+app.MapSifarnici(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>

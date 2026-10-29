@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – Nosilac naloga
+
+- Nosilac naloga je korisnik aplikacije; posebna tabela Serviser je ukinuta (skripta 004).
+- Svaki aktivni korisnik je na listi nosilaca, osim ako mu se isključi „Može biti nosilac naloga” (stranica Korisnici).
+- Šifarnici: tipovi i materijal mijenja kancelarija; podatke firme, tarifu i numeraciju mijenja administrator.
+- Pristup bazi u kodu: Dapper (SQL ostaje čitljiv u kodu).
+
 ## 2026-10-29 – Prijava i uloge
 
 - Firma ima domen; prijava ide domenskim nalogom (Windows/Negotiate), bez posebnih lozinki.

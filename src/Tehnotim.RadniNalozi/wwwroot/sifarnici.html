@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Šifarnici – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  .lista .stavka{display:grid;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+  .lista .stavka:first-child{border-top:0}
+  #tipovi .stavka{grid-template-columns:1fr auto auto auto}
+  #materijal .stavka{grid-template-columns:2fr 1fr auto auto}
+  .stavka label{display:flex;gap:6px;align-items:center;font-size:14px;white-space:nowrap}
+  .stavka input[type=checkbox]{width:auto}
+  .dodaj{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:2px solid var(--line)}
+  #tip-dodaj{grid-template-columns:1fr auto auto}
+  #mat-dodaj{grid-template-columns:2fr 1fr auto}
+  .broj{font:700 28px Consolas,monospace}
+  @media (max-width:560px){#tipovi .stavka,#materijal .stavka,#tip-dodaj,#mat-dodaj{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Šifarnici</h1>
+    <p class="muted">Liste i postavke koje se koriste u nalozima. Stavka koja je već upotrijebljena u uređaju ili nalogu ne može se obrisati, samo preimenovati.</p>
+  </div>
+
+  <div class="card">
+    <h2>Tipovi uređaja</h2>
+    <p class="muted">Kvačica „brojač” znači da se za uređaje tog tipa upisuje broj odštampanih strana.</p>
+    <div class="lista" id="tipovi"></div>
+    <div class="dodaj" id="tip-dodaj">
+      <input id="tip-naziv" placeholder="Novi tip, npr. Ploter">
+      <label><input type="checkbox" id="tip-brojac"> brojač</label>
+      <button id="tip-btn">Dodaj</button>
+    </div>
+    <div id="tip-poruka"></div>
+  </div>
+
+  <div class="card">
+    <h2>Materijal i dijelovi</h2>
+    <div class="lista" id="materijal"></div>
+    <div class="dodaj" id="mat-dodaj">
+      <input id="mat-naziv" placeholder="Naziv, npr. Toner TK-5240K">
+      <input id="mat-sifra" placeholder="Šifra (nije obavezna)">
+      <button id="mat-btn">Dodaj</button>
+    </div>
+    <div id="mat-poruka"></div>
+  </div>
+
+  <div class="card">
+    <h2>Nosioci naloga</h2>
+    <p class="muted">Aktivni korisnici koji se nude kao nosilac naloga. Mijenja se na stranici Korisnici (kvačica „Može biti nosilac naloga”).</p>
+    <div id="nosioci" class="muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>Numeracija naloga</h2>
+    <div class="row"><span>Sljedeći nalog dobiće broj</span><span class="broj" id="sljedeci">—</span></div>
+    <div id="num-uredi" hidden>
+      <p class="muted">Promijenite samo ako nastavljate postojeću numeraciju iz ove godine (npr. sa papirnih naloga). Ne može biti manji od već iskorištenih brojeva.</p>
+      <div class="akcije"><input id="num-unos" type="number" min="1" style="max-width:140px"><button id="num-btn">Postavi</button><span id="num-poruka"></span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Podaci firme i tarifa</h2>
+    <p class="muted" id="post-napomena">Podaci se štampaju u zaglavlju i podnožju naloga.</p>
+    <div class="grid">
+      <label class="f"><span>Tarifa putnih troškova (KM po km)</span><input id="p-tarifa" type="number" step="0.01" min="0"></label>
+      <label class="f"><span>Naziv firme</span><input id="p-naziv"></label>
+      <label class="f"><span>Adresa</span><input id="p-adresa"></label>
+      <label class="f"><span>E-mail</span><input id="p-email"></label>
+      <label class="f"><span>Web</span><input id="p-web"></label>
+      <label class="f"><span>JIB</span><input id="p-jib"></label>
+      <label class="f"><span>MB</span><input id="p-mb"></label>
+      <label class="f"><span>Žiro-račun</span><input id="p-ziro"></label>
+    </div>
+    <div class="akcije" id="post-akcije"><button class="primary" id="post-btn">Sačuvaj podatke firme</button><span id="post-poruka"></span></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const ok = el => { el.innerHTML = '<span class="chip ok">Sačuvano</span>'; setTimeout(() => el.innerHTML = '', 2500); };
+async function posalji(url, metod, tijelo, porukaEl) {
+  const r = await fetch(url, { method: metod, headers: { 'Content-Type': 'application/json' }, body: tijelo ? JSON.stringify(tijelo) : undefined });
+  if (r.ok) { if (porukaEl) ok(porukaEl); return true; }
+  const g = await r.json().catch(() => ({}));
+  const poruka = r.status === 403 ? 'Za ovo nemate pravo.' : (g.greska || 'Nije sačuvano.');
+  if (porukaEl) porukaEl.innerHTML = `<span class="greska">${esc(poruka)}</span>`;
+  return false;
+}
+let jeAdmin = false;
+
+// ---------- Tipovi ----------
+async function ucitajTipove() {
+  const lista = await fetch('/api/tipovi').then(r => r.json());
+  $('#tipovi').innerHTML = lista.map(t => `<div class="stavka" data-id="${t.id}">
+      <input class="t-naziv" value="${esc(t.naziv)}" aria-label="Naziv tipa">
+      <label><input type="checkbox" class="t-brojac" ${t.pratiBrojac ? 'checked' : ''}> brojač</label>
+      <button class="t-sac">Sačuvaj</button><button class="t-del">Obriši</button></div>`).join('');
+  document.querySelectorAll('#tipovi .stavka').forEach(red => {
+    const id = red.dataset.id;
+    red.querySelector('.t-sac').onclick = async () => {
+      if (await posalji(`/api/tipovi/${id}`, 'PUT', { naziv: red.querySelector('.t-naziv').value, pratiBrojac: red.querySelector('.t-brojac').checked }, $('#tip-poruka'))) ucitajTipove();
+    };
+    const del = red.querySelector('.t-del');
+    del.onclick = async () => {
+      if (!del.dataset.potvrda) { del.dataset.potvrda = 1; del.textContent = 'Sigurno?'; return; }
+      if (await posalji(`/api/tipovi/${id}`, 'DELETE', null, $('#tip-poruka'))) ucitajTipove();
+    };
+  });
+}
+$('#tip-btn').onclick = async () => {
+  if (await posalji('/api/tipovi', 'POST', { naziv: $('#tip-naziv').value, pratiBrojac: $('#tip-brojac').checked }, $('#tip-poruka'))) {
+    $('#tip-naziv').value = ''; $('#tip-brojac').checked = false; ucitajTipove();
+  }
+};
+
+// ---------- Materijal ----------
+async function ucitajMaterijal() {
+  const lista = await fetch('/api/materijal').then(r => r.json());
+  $('#materijal').innerHTML = lista.length ? lista.map(m => `<div class="stavka" data-id="${m.id}">
+      <input class="m-naziv" value="${esc(m.naziv)}" aria-label="Naziv">
+      <input class="m-sifra" value="${esc(m.sifra || '')}" aria-label="Šifra" placeholder="Šifra">
+      <button class="m-sac">Sačuvaj</button><button class="m-del">Obriši</button></div>`).join('')
+    : '<p class="muted">Lista je prazna. Materijal upisan u nalog dodaće se ovdje sam.</p>';
+  document.querySelectorAll('#materijal .stavka').forEach(red => {
+    const id = red.dataset.id;
+    red.querySelector('.m-sac').onclick = async () => {
+      if (await posalji(`/api/materijal/${id}`, 'PUT', { naziv: red.querySelector('.m-naziv').value, sifra: red.querySelector('.m-sifra').value }, $('#mat-poruka'))) ucitajMaterijal();
+    };
+    const del = red.querySelector('.m-del');
+    del.onclick = async () => {
+      if (!del.dataset.potvrda) { del.dataset.potvrda = 1; del.textContent = 'Sigurno?'; return; }
+      if (await posalji(`/api/materijal/${id}`, 'DELETE', null, $('#mat-poruka'))) ucitajMaterijal();
+    };
+  });
+}
+$('#mat-btn').onclick = async () => {
+  if (await posalji('/api/materijal', 'POST', { naziv: $('#mat-naziv').value, sifra: $('#mat-sifra').value }, $('#mat-poruka'))) {
+    $('#mat-naziv').value = ''; $('#mat-sifra').value = ''; ucitajMaterijal();
+  }
+};
+
+// ---------- Nosioci ----------
+async function ucitajNosioce() {
+  const lista = await fetch('/api/nosioci').then(r => r.json());
+  $('#nosioci').innerHTML = lista.length ? lista.map(n => esc(n.ime)).join(', ') : 'Nema nijednog.';
+}
+
+// ---------- Numeracija ----------
+async function ucitajNumeraciju() {
+  const n = await fetch('/api/numeracija').then(r => r.json());
+  $('#sljedeci').textContent = `${String(n.sljedeci).padStart(4, '0')}/${n.godina}`;
+  $('#num-unos').value = n.sljedeci;
+  $('#num-uredi').hidden = !jeAdmin;
+}
+$('#num-btn').onclick = async () => {
+  if (await posalji('/api/numeracija', 'PUT', { sljedeci: parseInt($('#num-unos').value, 10) || 0 }, $('#num-poruka'))) ucitajNumeraciju();
+};
+
+// ---------- Postavke ----------
+const POLJA = { tarifaKm: 'p-tarifa', nazivFirme: 'p-naziv', adresa: 'p-adresa', email: 'p-email', web: 'p-web', jib: 'p-jib', mb: 'p-mb', ziroRacun: 'p-ziro' };
+async function ucitajPostavke() {
+  const p = await fetch('/api/postavke').then(r => r.json());
+  for (const [k, id] of Object.entries(POLJA)) { const el = document.getElementById(id); el.value = p[k] ?? ''; el.readOnly = !jeAdmin; }
+  $('#post-akcije').hidden = !jeAdmin;
+  if (!jeAdmin) $('#post-napomena').textContent = 'Podatke firme i tarifu mijenja administrator.';
+}
+$('#post-btn').onclick = async () => {
+  const tijelo = {};
+  for (const [k, id] of Object.entries(POLJA)) tijelo[k] = document.getElementById(id).value;
+  tijelo.tarifaKm = parseFloat(String(tijelo.tarifaKm).replace(',', '.')) || 0;
+  await posalji('/api/postavke', 'PUT', tijelo, $('#post-poruka'));
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('sifarnici');
+  if (!ja.registrovan) return;
+  jeAdmin = ja.uloga === 'administrator';
+  ucitajTipove(); ucitajMaterijal(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
+})();
+</script>
+</body>
+</html>

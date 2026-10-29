@@ -42,7 +42,7 @@ API ključ za ServiceDesk Plus nikad ne ide u preglednik; sve pozive prema SDP r
 | Uređaj | serijski broj, inventurni broj, model, tip, samo crno-bijeli, klijent, poslovna jedinica, garancija do, zadnje stanje brojača kolor i C/B s datumom | Serijski jedinstven; traži se i po inventurnom |
 | Tip uređaja | naziv, prati brojač stranica DA/NE | Početni: Štampač, Multifunkcijski, Fotokopir (s brojačem); Računar, Laptop, Skener, Monitor |
 | Materijal | naziv, šifra | Novi materijal iz naloga dodaje se sam |
-| Serviser | ime i prezime, korisnički nalog, e-mail iz SDP | Veza s tehničarom u SDP po e-mailu |
+| Korisnik | domenski nalog, ime i prezime, e-mail (veza s tehničarom u SDP), uloga, aktivan, može biti nosilac naloga | Nosilac naloga = korisnik aplikacije (tabela Serviser ukinuta) |
 | Nalog | sva polja ispod + ID SDP zahtjeva, faza, istorija izmjena | Broj 0001/2026, nastavlja se kroz godinu |
 | Stavka uređaja na nalogu | nalog, uređaj, tip, kolor, C/B, ukupno | Brojač samo za tipove koji ga prate |
 | Stavka materijala | nalog, materijal, količina, broj otpremnice | |
@@ -66,7 +66,7 @@ API ključ za ServiceDesk Plus nikad ne ide u preglednik; sve pozive prema SDP r
 | Status ugovora | Iz klijenta, izmjenjivo |
 | Garancija | Iz uređaja (garancija do ≥ datum naloga), izmjenjivo |
 | Uređaj predao | Tekst: datum i ime |
-| Nosilac naloga | Izbor servisera; iz SDP tehničara kad nalog dolazi iz tiketa |
+| Nosilac naloga | Izbor iz aktivnih korisnika označenih kao nosilac; iz SDP tehničara (po e-mailu) kad nalog dolazi iz tiketa |
 | Uređaji (više) | Serijski ili inventurni broj → model, tip, klijent i jedinica iz baze |
 | Brojač stranica | Po uređaju, samo za tipove s brojačem: kolor, C/B, ukupno; prethodno stanje i razlika |
 | Opis zahtjeva | Iz tiketa ili ručno |

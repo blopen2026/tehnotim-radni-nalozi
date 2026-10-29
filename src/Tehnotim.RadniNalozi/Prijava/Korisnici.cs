@@ -10,19 +10,21 @@ public record Korisnik(
     string? Email,
     string Uloga,
     bool Aktivan,
-    DateTime? ZadnjaPrijava);
+    DateTime? ZadnjaPrijava,
+    bool NosilacNaloga);
 
 public record KorisnikUnos(
     string KorisnickiNalog,
     string? ImePrezime,
     string? Email,
     string Uloga,
-    bool Aktivan);
+    bool Aktivan,
+    bool NosilacNaloga = true);
 
 /// <summary>Rad s tabelom dbo.Korisnik.</summary>
 public class Korisnici(string connectionString)
 {
-    private const string Kolone = "Id, KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, ZadnjaPrijava";
+    private const string Kolone = "Id, KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, ZadnjaPrijava, NosilacNaloga";
 
     private static Korisnik Procitaj(SqlDataReader r) => new(
         r.GetInt32(0),
@@ -31,7 +33,8 @@ public class Korisnici(string connectionString)
         r.IsDBNull(3) ? null : r.GetString(3),
         r.GetString(4),
         r.GetBoolean(5),
-        r.IsDBNull(6) ? null : r.GetDateTime(6));
+        r.IsDBNull(6) ? null : r.GetDateTime(6),
+        r.GetBoolean(7));
 
     /// <summary>
     /// Poziva se pri svakom zahtjevu prijavljenog korisnika. Ako u tabeli još nema nikoga,
@@ -95,8 +98,8 @@ public class Korisnici(string connectionString)
         }
 
         var sql = id is null
-            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan) VALUES (@nalog, @ime, @email, @uloga, @aktivan)"
-            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan WHERE Id = @id";
+            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, NosilacNaloga) VALUES (@nalog, @ime, @email, @uloga, @aktivan, @nosilac)"
+            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan, NosilacNaloga = @nosilac WHERE Id = @id";
         await using (var cmd = new SqlCommand(sql, conn, tx))
         {
             cmd.Parameters.AddWithValue("@nalog", nalog);
@@ -104,6 +107,7 @@ public class Korisnici(string connectionString)
             cmd.Parameters.AddWithValue("@email", string.IsNullOrWhiteSpace(u.Email) ? DBNull.Value : (object)u.Email.Trim());
             cmd.Parameters.AddWithValue("@uloga", u.Uloga);
             cmd.Parameters.AddWithValue("@aktivan", u.Aktivan);
+            cmd.Parameters.AddWithValue("@nosilac", u.NosilacNaloga);
             cmd.Parameters.Add("@id", SqlDbType.Int).Value = (object?)id ?? DBNull.Value;
             await cmd.ExecuteNonQueryAsync();
         }
