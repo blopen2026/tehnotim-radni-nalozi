@@ -25,7 +25,7 @@
       <button id="k-del">Obriši klijenta</button>
       <span id="k-poruka"></span>
     </div>
-    <p class="muted" id="k-stat"></p>
+    <p class="muted"><span id="k-stat"></span> · <a id="uredjaji-link" href="uredjaji.html">Uređaji ovog klijenta →</a></p>
   </div>
 
   <div class="card">
@@ -91,6 +91,7 @@ async function ucitaj() {
   $('#k-ugovor').checked = k.ugovor;
   $('#k-stat').textContent = `${k.brojJedinica} poslovnih jedinica · ${k.brojUredjaja} uređaja · ${k.brojNaloga} naloga`;
   $('#uvoz-link').href = `uvoz.html?klijent=${encodeURIComponent(k.naziv)}`;
+  $('#uredjaji-link').href = `uredjaji.html?klijent=${k.id}`;
   prikaziJedinice();
 }
 

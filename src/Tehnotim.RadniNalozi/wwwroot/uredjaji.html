@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uređaji – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  .forma{background:var(--sunk);border-radius:8px;padding:14px;margin-top:12px}
+  .forma input,.forma select{background:var(--surface)}
+  td.sitno{font-size:13px;color:var(--muted)}
+  .brojac{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:12px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="akcije" style="margin-top:0">
+      <h1 style="flex:1;margin:0">Uređaji</h1>
+      <button class="primary" id="novi">+ Novi uređaj</button>
+    </div>
+    <div class="akcije">
+      <input id="trazi" type="search" placeholder="Serijski ili inventurni broj, model, klijent, jedinica" style="max-width:360px">
+      <select id="f-klijent" style="max-width:280px"><option value="">Svi klijenti</option></select>
+    </div>
+
+    <div class="forma" id="forma" hidden>
+      <h2 id="forma-naslov">Novi uređaj</h2>
+      <div class="grid">
+        <label class="f"><span>Serijski broj</span><input id="u-ser" class="mono"></label>
+        <label class="f"><span>Inventurni broj</span><input id="u-inv" class="mono"></label>
+        <label class="f"><span>Model</span><input id="u-model" list="dl-modeli"></label>
+        <label class="f"><span>Tip uređaja</span><select id="u-tip"></select></label>
+        <label class="f"><span>Klijent</span><select id="u-klijent"></select></label>
+        <label class="f"><span>Poslovna jedinica</span><select id="u-jedinica"></select></label>
+        <label class="f"><span>Garancija važi do</span><input id="u-gar" type="date"></label>
+      </div>
+      <datalist id="dl-modeli"></datalist>
+      <div id="brojac-dio" hidden>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="u-mono" style="width:auto"> Samo crno-bijeli (nema kolor brojača)</label>
+        <div class="brojac">
+          <label class="f" id="u-kol-w"><span>Zadnje stanje: kolor</span><input id="u-kol" type="number" min="0"></label>
+          <label class="f"><span>Zadnje stanje: crno-bijele</span><input id="u-cb" type="number" min="0"></label>
+          <label class="f"><span>Datum očitanja</span><input id="u-bdat" type="date"></label>
+        </div>
+        <p class="muted">Stanje brojača se poslije ažurira samo iz naloga. Ovdje se upisuje početno stanje za uređaje koji se unose ručno.</p>
+      </div>
+      <div class="akcije">
+        <button class="primary" id="u-sac">Sačuvaj uređaj</button>
+        <button id="u-odustani">Odustani</button>
+        <button id="u-del">Obriši uređaj</button>
+        <span id="u-poruka"></span>
+      </div>
+    </div>
+
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Serijski</th><th>Inv. broj</th><th>Model / tip</th><th>Klijent / jedinica</th><th>Garancija</th><th>Zadnji brojač</th><th>Naloga</th></tr></thead>
+      <tbody id="lista"><tr><td colspan="7" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+    <p class="muted" id="napomena"></p>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+let tipovi = [], klijenti = [], modeli = [], uredjaji = [], urediId = null;
+const jediniceKlijenta = {};
+const danas = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const fD = d => d ? d.slice(0, 10).split('-').reverse().join('.') + '.' : '';
+
+async function ucitajListu() {
+  const p = new URLSearchParams();
+  if ($('#trazi').value.trim()) p.set('q', $('#trazi').value.trim());
+  if ($('#f-klijent').value) p.set('klijentId', $('#f-klijent').value);
+  uredjaji = await fetch('/api/uredjaji?' + p).then(r => r.json());
+  $('#lista').innerHTML = uredjaji.length ? uredjaji.map(u => {
+    const g = u.garancijaDo ? u.garancijaDo.slice(0, 10) : null;
+    const bro = u.zadnjiKolor != null || u.zadnjiCB != null
+      ? `${u.samoCrnoBijeli ? '' : 'K ' + (u.zadnjiKolor ?? '—') + ' · '}CB ${u.zadnjiCB ?? '—'}<div class="sitno">${fD(u.brojacDatum)}</div>` : '';
+    return `<tr class="klik" data-id="${u.id}">
+      <td class="mono">${esc(u.serijskiBroj)}</td><td class="mono">${esc(u.inventurniBroj || '')}</td>
+      <td>${esc(u.model || '')}<div class="sitno">${esc(u.tipNaziv || '')}${u.samoCrnoBijeli ? ' · C/B' : ''}</div></td>
+      <td>${esc(u.klijentNaziv || '')}<div class="sitno">${esc(u.jedinicaNaziv || '')}</div></td>
+      <td>${g ? `<span class="chip ${g >= danas() ? 'ok' : 'warn'}">${fD(g)}</span>` : '<span class="muted">—</span>'}</td>
+      <td class="mono">${bro}</td><td>${u.brojNaloga}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="muted">Nema uređaja. Dodajte ih ovdje ili će se sami upisivati iz naloga (korak 8).</td></tr>';
+  $('#napomena').textContent = uredjaji.length === 500 ? 'Prikazano prvih 500; suzite pretragu.' : '';
+  document.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => uredi(uredjaji.find(u => u.id == tr.dataset.id)));
+}
+
+async function popuniJedinice(klijentId, izabrana) {
+  const sel = $('#u-jedinica');
+  if (!klijentId) { sel.innerHTML = '<option value="">—</option>'; return; }
+  if (!jediniceKlijenta[klijentId]) jediniceKlijenta[klijentId] = (await fetch(`/api/klijenti/${klijentId}`).then(r => r.json())).jedinice;
+  const lista = jediniceKlijenta[klijentId];
+  sel.innerHTML = '<option value="">—</option>' + lista.map(j => `<option value="${j.id}">${esc(j.naziv)}</option>`).join('');
+  sel.value = izabrana ? String(izabrana) : (lista.length === 1 ? String(lista[0].id) : '');
+}
+
+function osvjeziBrojac() {
+  const tip = tipovi.find(t => String(t.id) === $('#u-tip').value);
+  $('#brojac-dio').hidden = !tip?.pratiBrojac;
+  $('#u-kol-w').hidden = $('#u-mono').checked;
+}
+
+async function uredi(u) {
+  urediId = u ? u.id : null;
+  $('#forma-naslov').textContent = u ? `Izmjena: ${u.serijskiBroj}` : 'Novi uređaj';
+  $('#u-ser').value = u?.serijskiBroj || '';
+  $('#u-inv').value = u?.inventurniBroj || '';
+  $('#u-model').value = u?.model || '';
+  $('#u-tip').value = u?.tipUredjajaId ? String(u.tipUredjajaId) : '';
+  $('#u-mono').checked = !!u?.samoCrnoBijeli;
+  $('#u-klijent').value = u?.klijentId ? String(u.klijentId) : ($('#f-klijent').value || '');
+  await popuniJedinice($('#u-klijent').value, u?.poslovnaJedinicaId);
+  $('#u-gar').value = u?.garancijaDo ? u.garancijaDo.slice(0, 10) : '';
+  $('#u-kol').value = u?.zadnjiKolor ?? '';
+  $('#u-cb').value = u?.zadnjiCB ?? '';
+  $('#u-bdat').value = u?.brojacDatum ? u.brojacDatum.slice(0, 10) : '';
+  $('#u-del').hidden = !u;
+  $('#u-del').textContent = 'Obriši uređaj'; delete $('#u-del').dataset.potvrda;
+  $('#u-poruka').textContent = '';
+  osvjeziBrojac();
+  $('#forma').hidden = false;
+  $('#u-ser').focus();
+}
+
+$('#novi').onclick = () => uredi(null);
+$('#u-odustani').onclick = () => { $('#forma').hidden = true; };
+$('#u-tip').onchange = osvjeziBrojac;
+$('#u-mono').onchange = osvjeziBrojac;
+$('#u-klijent').onchange = () => popuniJedinice($('#u-klijent').value, null);
+$('#u-model').onchange = () => {
+  // Isti model već postoji kod drugog uređaja → predloži njegov tip
+  if ($('#u-tip').value) return;
+  const m = modeli.find(x => x.model.toLowerCase() === $('#u-model').value.trim().toLowerCase());
+  if (m?.tipUredjajaId) { $('#u-tip').value = String(m.tipUredjajaId); $('#u-mono').checked = m.samoCrnoBijeli; osvjeziBrojac(); }
+};
+let tajmer;
+$('#trazi').oninput = () => { clearTimeout(tajmer); tajmer = setTimeout(ucitajListu, 250); };
+$('#f-klijent').onchange = ucitajListu;
+
+const broj = v => v === '' ? null : parseInt(v, 10);
+$('#u-sac').onclick = async () => {
+  const brojac = !$('#brojac-dio').hidden;
+  const tijelo = {
+    serijskiBroj: $('#u-ser').value, inventurniBroj: $('#u-inv').value, model: $('#u-model').value,
+    tipUredjajaId: $('#u-tip').value ? +$('#u-tip').value : null,
+    samoCrnoBijeli: brojac && $('#u-mono').checked,
+    klijentId: $('#u-klijent').value ? +$('#u-klijent').value : null,
+    poslovnaJedinicaId: $('#u-jedinica').value ? +$('#u-jedinica').value : null,
+    garancijaDo: $('#u-gar').value || null,
+    zadnjiKolor: brojac && !$('#u-mono').checked ? broj($('#u-kol').value) : null,
+    zadnjiCB: brojac ? broj($('#u-cb').value) : null,
+    brojacDatum: brojac ? ($('#u-bdat').value || (($('#u-kol').value || $('#u-cb').value) ? danas() : null)) : null
+  };
+  const r = await fetch(urediId ? `/api/uredjaji/${urediId}` : '/api/uredjaji', {
+    method: urediId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tijelo)
+  });
+  if (r.ok) { $('#forma').hidden = true; modeli = await fetch('/api/uredjaji/modeli').then(x => x.json()); popuniModele(); ucitajListu(); }
+  else {
+    const g = await r.json().catch(() => ({}));
+    $('#u-poruka').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : g.greska || 'Nije sačuvano.')}</span>`;
+  }
+};
+
+$('#u-del').onclick = async () => {
+  const b = $('#u-del');
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno obrisati?'; return; }
+  const r = await fetch(`/api/uredjaji/${urediId}`, { method: 'DELETE' });
+  if (r.ok) { $('#forma').hidden = true; ucitajListu(); }
+  else { const g = await r.json().catch(() => ({})); $('#u-poruka').innerHTML = `<span class="greska">${esc(g.greska || 'Nije obrisano.')}</span>`; }
+};
+
+const popuniModele = () => $('#dl-modeli').innerHTML = modeli.map(m => `<option value="${esc(m.model)}">`).join('');
+
+(async () => {
+  const ja = await ucitajZaglavlje('uredjaji');
+  if (!ja.registrovan) return;
+  [tipovi, klijenti, modeli] = await Promise.all([
+    fetch('/api/tipovi').then(r => r.json()),
+    fetch('/api/klijenti').then(r => r.json()),
+    fetch('/api/uredjaji/modeli').then(r => r.json())
+  ]);
+  $('#u-tip').innerHTML = '<option value="">—</option>' + tipovi.map(t => `<option value="${t.id}">${esc(t.naziv)}</option>`).join('');
+  const opcije = klijenti.map(k => `<option value="${k.id}">${esc(k.naziv)}</option>`).join('');
+  $('#u-klijent').innerHTML = '<option value="">—</option>' + opcije;
+  $('#f-klijent').innerHTML = '<option value="">Svi klijenti</option>' + opcije;
+  popuniModele();
+  const kp = new URLSearchParams(location.search).get('klijent');
+  if (kp) $('#f-klijent').value = kp;
+  ucitajListu();
+})();
+</script>
+</body>
+</html>

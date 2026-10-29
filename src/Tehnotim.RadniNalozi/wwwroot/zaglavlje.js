@@ -8,6 +8,7 @@ async function ucitajZaglavlje(aktivna) {
   const meni = [['pocetna', '/', 'Početna']];
   if (ja.uloga === 'kancelarija' || ja.uloga === 'administrator') {
     meni.push(['klijenti', '/klijenti.html', 'Klijenti']);
+    meni.push(['uredjaji', '/uredjaji.html', 'Uređaji']);
     meni.push(['sifarnici', '/sifarnici.html', 'Šifarnici']);
   }
   if (ja.uloga === 'administrator') meni.push(['korisnici', '/korisnici.html', 'Korisnici']);

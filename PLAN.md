@@ -11,7 +11,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 4. (2026-10-29) Prijava korisnika (Windows/AD) i uloge: serviser, kancelarija, administrator – uputstvo: `docs/korak-04-prijava.md`
 - [x] 5. (2026-10-29) Šifarnici: tipovi uređaja, materijal, nosioci naloga, tarifa i podaci firme, numeracija – uputstvo: `docs/korak-05-sifarnici.md`
 - [x] 6. (2026-10-29) Klijenti i poslovne jedinice, uvoz iz Excela – uputstvo: `docs/korak-06-klijenti.md`
-- [ ] 7. Uređaji
+- [ ] 7. Uređaji – uputstvo: `docs/korak-07-uredjaji.md`
 - [ ] 8. Forma naloga (prema prototipu), čuvanje, lista naloga, pretraga, faze
 - [ ] 9. Potpisi na ekranu
 - [ ] 10. PDF prema prototipu i direktna štampa

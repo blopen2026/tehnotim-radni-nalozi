@@ -7,6 +7,7 @@ using Tehnotim.RadniNalozi.Baza;
 using Tehnotim.RadniNalozi.Klijenti;
 using Tehnotim.RadniNalozi.Prijava;
 using Tehnotim.RadniNalozi.Sifarnici;
+using Tehnotim.RadniNalozi.Uredjaji;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Baza") ?? "";
@@ -78,6 +79,9 @@ app.MapSifarnici(connectionString);
 // Klijenti, poslovne jedinice, uvoz iz Excela/CSV
 app.MapKlijenti(connectionString);
 app.MapCitanjeTabele();
+
+// Uređaji
+app.MapUredjaji(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>
