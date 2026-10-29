@@ -12,7 +12,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 5. (2026-10-29) Šifarnici: tipovi uređaja, materijal, nosioci naloga, tarifa i podaci firme, numeracija – uputstvo: `docs/korak-05-sifarnici.md`
 - [x] 6. (2026-10-29) Klijenti i poslovne jedinice, uvoz iz Excela – uputstvo: `docs/korak-06-klijenti.md`
 - [x] 7. (2026-10-29) Uređaji – uputstvo: `docs/korak-07-uredjaji.md`
-- [ ] 8a. Forma naloga (prema prototipu) i čuvanje – uputstvo: `docs/korak-08a-forma-naloga.md`
+- [x] 8a. (2026-10-29) Forma naloga (prema prototipu) i čuvanje – uputstvo: `docs/korak-08a-forma-naloga.md`
 - [ ] 8b. Lista naloga, pretraga, filter po fazama, istorija po uređaju, istorija izmjena
 - [ ] 9. Potpisi na ekranu
 - [ ] 10. PDF prema prototipu i direktna štampa
