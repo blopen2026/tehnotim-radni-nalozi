@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – Klijenti i uvoz
+
+- Excel/CSV čita server (ClosedXML), ne preglednik – uvoz ne zavisi od interneta; podržani .xlsx i .csv (stari .xls sačuvati kao .xlsx).
+- Prepoznavanje kolona, ćirilica → latinica i pregled rade na stranici; spajanje s postojećim jedinicama radi server, u jednoj transakciji.
+- Pravila dopune: isti naziv ili ista adresa = ista jedinica; naziv i kontakt osoba ostaju; telefon se dodaje uz postojeći.
+- Klijente i jedinice uređuju kancelarija i administrator; čitanje je dozvoljeno svima (treba formi naloga).
+
 ## 2026-10-29 – Nosilac naloga
 
 - Nosilac naloga je korisnik aplikacije; posebna tabela Serviser je ukinuta (skripta 004).

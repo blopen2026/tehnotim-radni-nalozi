@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uvoz jedinica – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  .prev{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .prev td{font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <p class="muted" style="margin:0 0 8px"><a href="klijenti.html">← Klijenti</a></p>
+    <h1>Uvoz poslovnih jedinica</h1>
+    <p class="muted">Tabela treba imati po jedan red za svaku poslovnu jedinicu. Kolone se prepoznaju po zaglavlju (naziv, adresa, poštanski broj, telefon, radno vrijeme…), a ispod ih možete prepraviti.
+      Jedinica koja već postoji kod klijenta (isti naziv ili ista adresa) se dopunjava: naziv i kontakt osoba ostaju, novi telefon se dodaje uz postojeći. Ostale se dodaju.</p>
+    <div class="grid">
+      <label class="f"><span>Klijent</span><input id="klijent" list="dl-klijenti" placeholder="Postojeći ili novi klijent"></label>
+      <label class="f"><span>Excel (.xlsx) ili CSV fajl</span><input id="fajl" type="file" accept=".xlsx,.xlsm,.csv,.txt"></label>
+    </div>
+    <datalist id="dl-klijenti"></datalist>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="lat" checked style="width:auto"> Ćirilicu pretvori u latinicu</label>
+    <p id="status" class="muted"></p>
+  </div>
+
+  <div class="card" id="mapa-card" hidden>
+    <h2>Kolone</h2>
+    <div class="grid" id="mapa"></div>
+  </div>
+
+  <div class="card" id="prev-card" hidden>
+    <h2 id="prev-naslov">Pregled</h2>
+    <div class="prev"><table><thead><tr><th></th><th>Naziv</th><th>Mjesto</th><th>Adresa</th><th>PTT</th><th>Telefon</th><th>Radno vr.</th><th>Kontakt</th></tr></thead><tbody id="prev"></tbody></table></div>
+    <div class="akcije"><button class="primary" id="uvezi">Uvezi</button><span id="poruka"></span></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const norm = s => String(s ?? '').trim().toLowerCase();
+
+// Ćirilica → latinica (srpska/bosanska)
+const CYR = {'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Ђ':'Đ','Е':'E','Ж':'Ž','З':'Z','И':'I','Ј':'J','К':'K','Л':'L','Љ':'Lj','М':'M','Н':'N','Њ':'Nj','О':'O','П':'P','Р':'R','С':'S','Т':'T','Ћ':'Ć','У':'U','Ф':'F','Х':'H','Ц':'C','Ч':'Č','Џ':'Dž','Ш':'Š'};
+Object.keys(CYR).forEach(c => CYR[c.toLowerCase()] = CYR[c].toLowerCase());
+const lat = s => String(s ?? '').replace(/[Ѐ-ӿ]/g, c => CYR[c] ?? c);
+
+// Polja jedinice i riječi po kojima se prepoznaje kolona (u latinici, malim slovima)
+const POLJA = [
+  ['naziv', 'Naziv jedinice', ['jedinic', 'naziv', 'organizac', 'poslovn', 'filijal', 'ispostav']],
+  ['mjesto', 'Mjesto', ['mjesto', 'mesto', 'grad', 'opstin', 'opštin']],
+  ['adresa', 'Adresa', ['adres', 'ulica']],
+  ['postanskiBroj', 'Poštanski broj', ['postan', 'poštan', 'ptt', 'zip']],
+  ['telefon', 'Telefon', ['tel', 'phone', 'mob']],
+  ['radnoVrijeme', 'Radno vrijeme', ['radno', 'vrijeme', 'vreme']],
+  ['kontaktOsoba', 'Kontakt osoba', ['kontakt', 'osoba', 'odgovor']],
+  ['email', 'E-mail', ['mail']],
+  ['kmOdBL', 'Km od BL', ['km', 'udalj']],
+];
+// "051 456 252 051 456 240" → "051 456 252, 051 456 240"
+const srediTelefon = s => { s = String(s ?? '').trim(); const m = s.match(/\d{3}[\s\/-]?\d{3}[\s\/-]?\d{3,4}/g); return m && m.length > 1 ? m.join(', ') : s; };
+// "PJ Bijeljina" → "Bijeljina"
+const mjestoIzNaziva = n => { const m = n.match(/^(PJ|PK)\.?\s+(.+)$/i); return m ? m[2].trim() : ''; };
+
+function prepoznajKolone(zaglavlje) {
+  const mapa = {}, zauzete = new Set();
+  POLJA.forEach(([polje, , rijeci]) => {
+    const i = zaglavlje.findIndex((h, ix) => !zauzete.has(ix) && rijeci.some(r => norm(lat(h)).includes(r)));
+    if (i >= 0) { mapa[polje] = i; zauzete.add(i); }
+  });
+  return mapa;
+}
+const nadjiZaglavlje = redovi => {
+  let najbolji = 0, max = -1;
+  redovi.slice(0, 15).forEach((r, i) => { const n = Object.keys(prepoznajKolone(r)).length; if (n > max) { max = n; najbolji = i; } });
+  return najbolji;
+};
+
+let klijenti = [], redovi = [], zaglavljeRed = 0, mapa = {}, postojece = [], pripremljeno = [];
+
+async function ucitajPostojece() {
+  const k = klijenti.find(x => norm(x.naziv) === norm($('#klijent').value));
+  postojece = k ? (await fetch(`/api/klijenti/${k.id}`).then(r => r.json())).jedinice : [];
+  $('#status').textContent = k ? `Klijent postoji, ima ${postojece.length} poslovnih jedinica.` : ($('#klijent').value.trim() ? 'Novi klijent: biće dodan pri uvozu.' : '');
+}
+
+function pripremi() {
+  const conv = $('#lat').checked ? lat : (x => String(x ?? ''));
+  const uzmi = (r, polje) => mapa[polje] != null ? String(r[mapa[polje]] ?? '').trim() : '';
+  const vidjene = [];
+  pripremljeno = redovi.slice(zaglavljeRed + 1).map(r => {
+    const naziv = conv(uzmi(r, 'naziv'));
+    if (!naziv) return null;
+    const j = {
+      naziv,
+      mjesto: conv(uzmi(r, 'mjesto')) || mjestoIzNaziva(naziv),
+      adresa: conv(uzmi(r, 'adresa')),
+      postanskiBroj: uzmi(r, 'postanskiBroj'),
+      telefon: srediTelefon(uzmi(r, 'telefon')),
+      radnoVrijeme: uzmi(r, 'radnoVrijeme'),
+      kontaktOsoba: conv(uzmi(r, 'kontaktOsoba')),
+      email: uzmi(r, 'email'),
+      kmOdBL: parseFloat(uzmi(r, 'kmOdBL').replace(',', '.')) || null
+    };
+    const postoji = [...postojece, ...vidjene].some(x => norm(x.naziv) === norm(j.naziv) || (j.adresa && norm(x.adresa) === norm(j.adresa)));
+    vidjene.push(j);
+    return { j, postoji };
+  }).filter(Boolean);
+}
+
+function prikazi() {
+  const zaglavlje = redovi[zaglavljeRed] || [];
+  $('#mapa').innerHTML = POLJA.map(([polje, naziv]) => `<label class="f"><span>${naziv}</span><select data-polje="${polje}">
+      <option value="">—</option>${zaglavlje.map((h, i) => `<option value="${i}" ${mapa[polje] === i ? 'selected' : ''}>${esc(lat(h) || 'kolona ' + (i + 1))}</option>`).join('')}
+    </select></label>`).join('');
+  document.querySelectorAll('#mapa select').forEach(s => s.onchange = () => {
+    if (s.value === '') delete mapa[s.dataset.polje]; else mapa[s.dataset.polje] = +s.value;
+    prikazi();
+  });
+  $('#mapa-card').hidden = false;
+
+  pripremi();
+  const novih = pripremljeno.filter(p => !p.postoji).length;
+  $('#prev-naslov').textContent = `Pregled: ${pripremljeno.length} jedinica (${novih} novih, ${pripremljeno.length - novih} za dopunu)`;
+  $('#prev').innerHTML = pripremljeno.length
+    ? pripremljeno.map(({ j, postoji }) => `<tr><td>${postoji ? '<span class="chip warn">dopuna</span>' : '<span class="chip ok">nova</span>'}</td>
+        <td>${esc(j.naziv)}</td><td>${esc(j.mjesto)}</td><td>${esc(j.adresa)}</td><td class="mono">${esc(j.postanskiBroj)}</td>
+        <td class="mono">${esc(j.telefon)}</td><td class="mono">${esc(j.radnoVrijeme)}</td><td>${esc(j.kontaktOsoba)}</td></tr>`).join('')
+    : '<tr><td colspan="8" class="muted">Nema redova sa nazivom jedinice. Provjerite koja kolona je „Naziv jedinice”.</td></tr>';
+  $('#uvezi').disabled = !pripremljeno.length;
+  $('#uvezi').textContent = pripremljeno.length ? `Uvezi ${pripremljeno.length} jedinica` : 'Uvezi';
+  $('#prev-card').hidden = false;
+}
+
+$('#fajl').onchange = async () => {
+  const f = $('#fajl').files[0];
+  if (!f) return;
+  $('#status').textContent = 'Čitam fajl…';
+  const fd = new FormData();
+  fd.append('fajl', f);
+  const r = await fetch('/api/uvoz/procitaj', { method: 'POST', body: fd });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#status').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : d.greska || 'Fajl nije pročitan.')}</span>`; return; }
+  redovi = d.redovi;
+  zaglavljeRed = nadjiZaglavlje(redovi);
+  mapa = prepoznajKolone(redovi[zaglavljeRed] || []);
+  await ucitajPostojece();
+  prikazi();
+};
+$('#lat').onchange = () => redovi.length && prikazi();
+$('#klijent').onchange = async () => { await ucitajPostojece(); if (redovi.length) prikazi(); };
+
+$('#uvezi').onclick = async () => {
+  const klijentNaziv = $('#klijent').value.trim();
+  if (!klijentNaziv) { $('#poruka').innerHTML = '<span class="greska">Upišite ili izaberite klijenta.</span>'; $('#klijent').focus(); return; }
+  $('#uvezi').disabled = true; $('#uvezi').textContent = 'Uvozim…';
+  const r = await fetch('/api/klijenti/uvoz', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ klijentNaziv, jedinice: pripremljeno.map(p => p.j) })
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    $('#poruka').innerHTML = `<span class="chip ok">Uvezeno: ${d.novih} novih, ${d.azuriranih} dopunjeno</span> <a href="klijent.html?id=${d.klijentId}">Otvori klijenta →</a>`;
+    $('#uvezi').textContent = 'Uvezeno';
+  } else {
+    $('#poruka').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : d.greska || 'Uvoz nije uspio.')}</span>`;
+    $('#uvezi').disabled = false; $('#uvezi').textContent = 'Uvezi';
+  }
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('klijenti');
+  if (!ja.registrovan) return;
+  klijenti = await fetch('/api/klijenti').then(r => r.json());
+  $('#dl-klijenti').innerHTML = klijenti.map(k => `<option value="${esc(k.naziv)}">`).join('');
+  const k = new URLSearchParams(location.search).get('klijent');
+  if (k) { $('#klijent').value = k; await ucitajPostojece(); }
+})();
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
 using Tehnotim.RadniNalozi.Baza;
+using Tehnotim.RadniNalozi.Klijenti;
 using Tehnotim.RadniNalozi.Prijava;
 using Tehnotim.RadniNalozi.Sifarnici;
 
@@ -73,6 +74,10 @@ korisniciApi.MapPut("/{id:int}", async (Korisnici k, int id, KorisnikUnos unos) 
 
 // Šifarnici: tipovi uređaja, materijal, postavke, numeracija, nosioci naloga
 app.MapSifarnici(connectionString);
+
+// Klijenti, poslovne jedinice, uvoz iz Excela/CSV
+app.MapKlijenti(connectionString);
+app.MapCitanjeTabele();
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klijent – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  .jed-forma{background:var(--sunk);border-radius:8px;padding:14px;margin-top:12px}
+  td.sitno{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <p class="muted" style="margin:0 0 8px"><a href="klijenti.html">← Svi klijenti</a></p>
+    <h1 id="naslov">Klijent</h1>
+    <div class="grid">
+      <label class="f"><span>Naziv</span><input id="k-naziv"></label>
+      <label class="f"><span>Skraćenica (za ime PDF fajla)</span><input id="k-skr" placeholder="npr. RUGIPP"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="k-ugovor" style="width:auto"> Ima ugovor o održavanju</label>
+    <div class="akcije">
+      <button class="primary" id="k-sac">Sačuvaj klijenta</button>
+      <button id="k-del">Obriši klijenta</button>
+      <span id="k-poruka"></span>
+    </div>
+    <p class="muted" id="k-stat"></p>
+  </div>
+
+  <div class="card">
+    <div class="akcije" style="margin-top:0">
+      <h2 style="flex:1;margin:0">Poslovne jedinice</h2>
+      <button id="j-nova">+ Nova jedinica</button>
+      <a id="uvoz-link" href="uvoz.html"><button>Uvoz iz Excela</button></a>
+    </div>
+    <div class="akcije"><input id="j-trazi" type="search" placeholder="Traži jedinicu, mjesto, adresu, telefon" style="max-width:340px"></div>
+
+    <div class="jed-forma" id="j-forma" hidden>
+      <h2 id="j-naslov">Nova poslovna jedinica</h2>
+      <div class="grid">
+        <label class="f"><span>Naziv</span><input id="j-naziv" placeholder="npr. PJ Prijedor"></label>
+        <label class="f"><span>Mjesto</span><input id="j-mjesto"></label>
+        <label class="f"><span>Adresa</span><input id="j-adresa"></label>
+        <label class="f"><span>Poštanski broj</span><input id="j-ptt"></label>
+        <label class="f"><span>Telefon</span><input id="j-tel" placeholder="više brojeva odvojiti zarezom"></label>
+        <label class="f"><span>Radno vrijeme</span><input id="j-rv" placeholder="07:30-15:30"></label>
+        <label class="f"><span>Kontakt osoba</span><input id="j-kontakt"></label>
+        <label class="f"><span>E-mail</span><input id="j-email"></label>
+        <label class="f"><span>Km od Banje Luke (jedan smjer)</span><input id="j-km" type="number" step="0.1" min="0"></label>
+      </div>
+      <div class="akcije">
+        <button class="primary" id="j-sac">Sačuvaj jedinicu</button>
+        <button id="j-odustani">Odustani</button>
+        <button id="j-del">Obriši jedinicu</button>
+        <span id="j-poruka"></span>
+      </div>
+    </div>
+
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Jedinica</th><th>Adresa</th><th>Telefon</th><th>Kontakt</th><th>Km</th></tr></thead>
+      <tbody id="j-lista"></tbody>
+    </table></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const id = new URLSearchParams(location.search).get('id');
+let jedinice = [], urediId = null;
+
+const greskaIz = async (r) => {
+  const g = await r.json().catch(() => ({}));
+  return r.status === 403 ? 'Za ovo nemate pravo.' : g.greska || 'Nije sačuvano.';
+};
+const javi = (el, ok, tekst) => {
+  el.innerHTML = ok ? '<span class="chip ok">Sačuvano</span>' : `<span class="greska">${esc(tekst)}</span>`;
+  if (ok) setTimeout(() => el.innerHTML = '', 2500);
+};
+
+async function ucitaj() {
+  const r = await fetch(`/api/klijenti/${id}`);
+  if (!r.ok) { document.querySelector('main').innerHTML = '<div class="card">Klijent ne postoji. <a href="klijenti.html">Nazad na listu</a></div>'; return; }
+  const d = await r.json();
+  const k = d.klijent;
+  jedinice = d.jedinice;
+  document.title = `${k.naziv} – Tehnotim radni nalozi`;
+  $('#naslov').textContent = k.naziv;
+  $('#k-naziv').value = k.naziv;
+  $('#k-skr').value = k.skracenica || '';
+  $('#k-ugovor').checked = k.ugovor;
+  $('#k-stat').textContent = `${k.brojJedinica} poslovnih jedinica · ${k.brojUredjaja} uređaja · ${k.brojNaloga} naloga`;
+  $('#uvoz-link').href = `uvoz.html?klijent=${encodeURIComponent(k.naziv)}`;
+  prikaziJedinice();
+}
+
+function prikaziJedinice() {
+  const q = $('#j-trazi').value.trim().toLowerCase();
+  const lista = jedinice.filter(j => !q || [j.naziv, j.mjesto, j.adresa, j.telefon, j.kontaktOsoba].some(x => (x || '').toLowerCase().includes(q)));
+  $('#j-lista').innerHTML = !jedinice.length
+    ? '<tr><td colspan="5" class="muted">Nema poslovnih jedinica. Dodajte ih ručno ili uvezite iz Excela.</td></tr>'
+    : lista.map(j => `<tr class="klik" data-id="${j.id}">
+        <td><b>${esc(j.naziv)}</b>${j.radnoVrijeme ? `<div class="sitno muted">${esc(j.radnoVrijeme)}</div>` : ''}</td>
+        <td class="sitno">${esc([j.adresa, [j.postanskiBroj, j.mjesto].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</td>
+        <td class="sitno mono">${esc(j.telefon || '')}</td>
+        <td class="sitno">${esc(j.kontaktOsoba || '')}</td>
+        <td class="mono">${j.kmOdBL ? j.kmOdBL : '<span class="muted">—</span>'}</td></tr>`).join('');
+  document.querySelectorAll('#j-lista tr[data-id]').forEach(tr => tr.onclick = () => urediJedinicu(jedinice.find(j => j.id == tr.dataset.id)));
+}
+
+const POLJA = { naziv: 'j-naziv', mjesto: 'j-mjesto', adresa: 'j-adresa', postanskiBroj: 'j-ptt', telefon: 'j-tel', radnoVrijeme: 'j-rv', kontaktOsoba: 'j-kontakt', email: 'j-email', kmOdBL: 'j-km' };
+
+function urediJedinicu(j) {
+  urediId = j ? j.id : null;
+  $('#j-naslov').textContent = j ? `Izmjena: ${j.naziv}` : 'Nova poslovna jedinica';
+  for (const [k, el] of Object.entries(POLJA)) document.getElementById(el).value = j ? (j[k] || '') : '';
+  $('#j-del').hidden = !j;
+  $('#j-del').textContent = 'Obriši jedinicu'; delete $('#j-del').dataset.potvrda;
+  $('#j-poruka').textContent = '';
+  $('#j-forma').hidden = false;
+  $('#j-forma').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#j-naziv').focus();
+}
+
+$('#j-nova').onclick = () => urediJedinicu(null);
+$('#j-odustani').onclick = () => { $('#j-forma').hidden = true; };
+$('#j-trazi').oninput = prikaziJedinice;
+
+$('#j-sac').onclick = async () => {
+  const tijelo = {};
+  for (const [k, el] of Object.entries(POLJA)) tijelo[k] = document.getElementById(el).value;
+  tijelo.kmOdBL = parseFloat(String(tijelo.kmOdBL).replace(',', '.')) || null;
+  const r = await fetch(urediId ? `/api/jedinice/${urediId}` : `/api/klijenti/${id}/jedinice`, {
+    method: urediId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tijelo)
+  });
+  if (r.ok) { $('#j-forma').hidden = true; await ucitaj(); }
+  else javi($('#j-poruka'), false, await greskaIz(r));
+};
+
+$('#j-del').onclick = async () => {
+  const b = $('#j-del');
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno obrisati?'; return; }
+  const r = await fetch(`/api/jedinice/${urediId}`, { method: 'DELETE' });
+  if (r.ok) { $('#j-forma').hidden = true; await ucitaj(); }
+  else javi($('#j-poruka'), false, await greskaIz(r));
+};
+
+$('#k-sac').onclick = async () => {
+  const r = await fetch(`/api/klijenti/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ naziv: $('#k-naziv').value, skracenica: $('#k-skr').value, ugovor: $('#k-ugovor').checked })
+  });
+  if (r.ok) { javi($('#k-poruka'), true); ucitaj(); } else javi($('#k-poruka'), false, await greskaIz(r));
+};
+
+$('#k-del').onclick = async () => {
+  const b = $('#k-del');
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno? Brišu se i sve jedinice'; return; }
+  const r = await fetch(`/api/klijenti/${id}`, { method: 'DELETE' });
+  if (r.ok) location.href = 'klijenti.html';
+  else javi($('#k-poruka'), false, await greskaIz(r));
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('klijenti');
+  if (!ja.registrovan) return;
+  ucitaj();
+})();
+</script>
+</body>
+</html>

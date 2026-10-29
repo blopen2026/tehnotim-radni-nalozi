@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klijenti – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="akcije" style="margin-top:0">
+      <h1 style="flex:1;margin:0">Klijenti</h1>
+      <a href="uvoz.html"><button>Uvoz iz Excela</button></a>
+    </div>
+    <div class="akcije">
+      <input id="trazi" type="search" placeholder="Traži po nazivu ili skraćenici" style="max-width:340px">
+    </div>
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Klijent</th><th>Skraćenica</th><th>Jedinica</th><th>Uređaja</th><th>Naloga</th><th>Ugovor</th></tr></thead>
+      <tbody id="lista"><tr><td colspan="6" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>Novi klijent</h2>
+    <div class="grid">
+      <label class="f"><span>Naziv</span><input id="n-naziv"></label>
+      <label class="f"><span>Skraćenica (za ime PDF fajla)</span><input id="n-skr" placeholder="npr. RUGIPP"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="n-ugovor" style="width:auto"> Ima ugovor o održavanju</label>
+    <div class="akcije"><button class="primary" id="n-btn">Dodaj klijenta</button><span id="n-poruka"></span></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+let svi = [];
+
+function prikazi() {
+  const q = $('#trazi').value.trim().toLowerCase();
+  const lista = svi.filter(k => !q || k.naziv.toLowerCase().includes(q) || (k.skracenica || '').toLowerCase().includes(q));
+  $('#lista').innerHTML = !svi.length
+    ? '<tr><td colspan="6" class="muted">Još nema klijenata. Dodajte prvog ispod ili uvezite poslovne jedinice iz Excela.</td></tr>'
+    : !lista.length ? '<tr><td colspan="6" class="muted">Nema klijenta za tu pretragu.</td></tr>'
+    : lista.map(k => `<tr class="klik" data-id="${k.id}">
+        <td><b>${esc(k.naziv)}</b></td><td class="mono">${esc(k.skracenica || '')}</td>
+        <td>${k.brojJedinica}</td><td>${k.brojUredjaja}</td><td>${k.brojNaloga}</td>
+        <td>${k.ugovor ? '<span class="chip ok">da</span>' : '<span class="muted">ne</span>'}</td></tr>`).join('');
+  document.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => location.href = `klijent.html?id=${tr.dataset.id}`);
+}
+
+async function ucitaj() {
+  svi = await fetch('/api/klijenti').then(r => r.json());
+  prikazi();
+}
+
+$('#trazi').oninput = prikazi;
+$('#n-btn').onclick = async () => {
+  const r = await fetch('/api/klijenti', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ naziv: $('#n-naziv').value, skracenica: $('#n-skr').value, ugovor: $('#n-ugovor').checked })
+  });
+  const g = await r.json().catch(() => ({}));
+  if (r.ok) location.href = `klijent.html?id=${g.id}`;
+  else $('#n-poruka').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : g.greska || 'Nije sačuvano.')}</span>`;
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('klijenti');
+  if (!ja.registrovan) return;
+  ucitaj();
+})();
+</script>
+</body>
+</html>
