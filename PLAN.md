@@ -8,7 +8,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 1. (2026-10-29) Postavljanje računara za razvoj (.NET SDK, SQL Server Express, Git) – vidi `docs/postavljanje-racunara.md`
 - [x] 2. (2026-10-29) Prazan ASP.NET Core projekat koji se pokreće lokalno – uputstvo: `docs/korak-02-pokretanje.md`
 - [x] 3. (2026-10-29) Baza: tabele iz specifikacije (klijenti, poslovne jedinice, uređaji, tipovi, materijal, serviseri, nalozi, postavke) – uputstvo: `docs/korak-03-baza.md`
-- [ ] 4. Prijava korisnika (Windows/AD) i uloge: serviser, kancelarija, administrator – uputstvo: `docs/korak-04-prijava.md`
+- [x] 4. (2026-10-29) Prijava korisnika (Windows/AD) i uloge: serviser, kancelarija, administrator – uputstvo: `docs/korak-04-prijava.md`
 - [ ] 5. Šifarnici: serviseri, tipovi uređaja, materijal, tarifa, numeracija
 - [ ] 6. Klijenti i poslovne jedinice, uvoz iz Excela
 - [ ] 7. Uređaji
