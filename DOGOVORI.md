@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-29 – Novi razvojni laptop
+
+- Razvoj se seli na novi laptop sa čistim Windows 11 (stari računar ima SQL 2014, BarTender 2019 i neuspjelu instalaciju 2025).
+- Na laptopu: SQL Server 2022 Express, instanca `SQL2022`, Windows autentifikacija; aplikacija lokalno koristi `.\SQL2022`.
+- Prije instalacije SQL-a provjeriti veličinu sektora diska (`fsutil fsinfo sectorinfo C:`); ako je veća od 4096, prvo podesiti registar.
+
 ## 2026-10-29 – SQL Server na razvojnom računaru
 
 - Razvojni računar ima tri instance: `BARTENDER` (program BarTender – ne dirati), `SQLEXPRESS` (SQL Server 2014 RTM – ne koristiti, ne dirati),
