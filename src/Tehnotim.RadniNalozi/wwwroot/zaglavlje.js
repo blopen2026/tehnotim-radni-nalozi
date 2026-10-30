@@ -17,7 +17,7 @@ async function ucitajZaglavlje(aktivna) {
   }
 
   const h = document.createElement('header');
-  h.innerHTML = `<a class="brand" href="/"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"><small>Radni nalozi</small></a>
+  h.innerHTML = `<a class="brand" href="/" title="Početna"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"></a>
     <nav>${ja.registrovan ? meni.map(([k, url, t]) => `<a href="${url}" class="${k === aktivna ? 'akt' : ''}">${t}</a>`).join('') : ''}</nav>
     <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span>`;
   document.body.prepend(h);

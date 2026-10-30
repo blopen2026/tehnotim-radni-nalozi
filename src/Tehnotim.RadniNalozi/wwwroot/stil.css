@@ -36,5 +36,4 @@ label.f span{font-size:12px;font-weight:600;text-transform:uppercase;letter-spac
 .greska{color:var(--bad);font-weight:600}
 
 header .brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}
-header .brand small{font-size:13px;color:#fff;border-left:1px solid rgba(255,255,255,.35);padding-left:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
 header .brand img.logo{height:30px;width:auto;display:block}
