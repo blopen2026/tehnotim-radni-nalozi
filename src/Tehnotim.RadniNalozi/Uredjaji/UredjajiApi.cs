@@ -107,7 +107,7 @@ public static class UredjajiApi
         uredjaji.MapGet("/{id:int}/nalozi", async (int id) =>
         {
             await using var c = Veza();
-            return Results.Ok(await c.QueryAsync(@"
+            return Results.Ok(await c.QueryAsync<Nalozi.NalogUredjajaStavka>(@"
                 SELECT n.Id, n.Broj, n.Faza, n.DatumIzdavanja, n.PozivInterni, n.NosilacIme, n.Status,
                        LEFT(COALESCE(NULLIF(n.OpisIntervencije, ''), n.OpisZahtjeva), 120) AS Opis,
                        nu.Kolor, nu.CB

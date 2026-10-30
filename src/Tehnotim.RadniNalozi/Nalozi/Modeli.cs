@@ -137,3 +137,25 @@ public class NalogUListi
     public string? PrviUredjaj { get; set; }
     public int BrojUredjaja { get; set; }
 }
+
+public class IzmjenaNaloga
+{
+    public DateTime Vrijeme { get; set; }
+    public string? Korisnik { get; set; }
+    public string? Opis { get; set; }
+}
+
+/// <summary>Jedan nalog u istoriji uređaja.</summary>
+public class NalogUredjajaStavka
+{
+    public int Id { get; set; }
+    public string Broj { get; set; } = "";
+    public string Faza { get; set; } = "";
+    public DateTime DatumIzdavanja { get; set; }
+    public string? PozivInterni { get; set; }
+    public string? NosilacIme { get; set; }
+    public string? Status { get; set; }
+    public string? Opis { get; set; }
+    public int? Kolor { get; set; }
+    public int? CB { get; set; }
+}

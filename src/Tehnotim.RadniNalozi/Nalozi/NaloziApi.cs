@@ -61,7 +61,7 @@ public static class NaloziApi
         nalozi.MapGet("/{id:int}/istorija", async (int id) =>
         {
             await using var c = new SqlConnection(connectionString);
-            return Results.Ok(await c.QueryAsync(
+            return Results.Ok(await c.QueryAsync<IzmjenaNaloga>(
                 "SELECT Vrijeme, Korisnik, Opis FROM dbo.NalogIzmjena WHERE NalogId = @id ORDER BY Vrijeme DESC, Id DESC", new { id }));
         });
 
