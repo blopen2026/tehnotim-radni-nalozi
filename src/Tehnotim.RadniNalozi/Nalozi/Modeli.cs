@@ -35,6 +35,8 @@ public class NalogUnos
     public string? Status { get; set; }
     public string? Intervencija { get; set; }
     public bool PotpisKasnije { get; set; }
+    public string? PotpisServiser { get; set; }   // PNG kao base64 ili data URL; prazno = bez potpisa
+    public string? PotpisKorisnik { get; set; }
 
     public List<NalogUredjajUnos> Uredjaji { get; set; } = [];
     public List<NalogMaterijalUnos> Materijal { get; set; } = [];
@@ -95,6 +97,8 @@ public class NalogDetalji
     public string? Status { get; set; }
     public string? Intervencija { get; set; }
     public bool PotpisKasnije { get; set; }
+    public byte[]? PotpisServiser { get; set; }   // u JSON-u ide kao base64
+    public byte[]? PotpisKorisnik { get; set; }
     public DateTime Kreirano { get; set; }
     public string? Kreirao { get; set; }
     public DateTime? Izmijenjeno { get; set; }

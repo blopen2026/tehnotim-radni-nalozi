@@ -46,6 +46,12 @@
   .actions{position:sticky;bottom:0;background:var(--bg);padding:12px 0;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center;z-index:4}
   .chip.u_radu{background:#dde9f6;color:#1f5a96} .chip.ceka_potpis{background:var(--warn-bg);color:var(--warn)} .chip.zavrsen{background:var(--ok-bg);color:var(--ok)} .chip.novo_iz_tiketa{background:var(--sunk);color:var(--ink)}
   .check{display:flex;gap:8px;align-items:center} .check input{width:auto}
+  .sigs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .sig{display:grid;gap:6px}
+  .sig canvas{width:100%;aspect-ratio:3/1;max-width:100%;background:#fff;border:1px dashed var(--line);border-radius:8px;touch-action:none;cursor:crosshair}
+  .sig .top{display:flex;justify-content:space-between;align-items:center}
+  .signame{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:600}
+  .signame .muted{font-weight:400;font-size:13px}
 </style>
 </head>
 <body>
@@ -140,8 +146,15 @@ function buildForm() {
   </div></div>
 
   <div class="sec"><div class="lab">Ovjera (potpis)</div><div class="body">
-    <p class="muted" style="margin:0">Potpisi na ekranu dolaze u koraku 9.</p>
-    <label class="check"><input type="checkbox" id="f-kasnije"> Korisnik potpisuje kasnije (nalog ide u „Čeka potpis”)</label>
+    <div class="sigs">
+      <div class="sig"><div class="top"><h2 style="margin:0">Izvođač (serviser)</h2><button class="ghost" data-clear="s">Obriši</button></div>
+        <div class="signame"><span id="sig-s-name"></span><span class="muted">potpis nije obavezan</span></div>
+        <canvas id="sig-s" width="600" height="200" aria-label="Potpis servisera"></canvas></div>
+      <div class="sig"><div class="top"><h2 style="margin:0">Korisnik usluge</h2><button class="ghost" data-clear="k">Obriši</button></div>
+        <div class="signame"><span class="muted">potpisom korisnika nalog postaje „Završen”</span></div>
+        <canvas id="sig-k" width="600" height="200" aria-label="Potpis korisnika"></canvas>
+        <label class="check"><input type="checkbox" id="f-kasnije"> Korisnik potpisuje kasnije (nalog ide u „Čeka potpis”)</label></div>
+    </div>
   </div></div>
 
   ${n.id ? `<div class="sec"><div class="lab">Istorija izmjena</div><div class="body"><div id="istorija" class="muted">Učitavam…</div></div></div>` : ''}
@@ -170,6 +183,12 @@ function buildForm() {
 
   renderDevRows(n.uredjaji.length ? n.uredjaji : [{}]);
   renderMatRows(n.materijal.length ? n.materijal : [{}]);
+
+  padS = pad($('#sig-s'), n.potpisServiser ? 'data:image/png;base64,' + n.potpisServiser : null);
+  padK = pad($('#sig-k'), n.potpisKorisnik ? 'data:image/png;base64,' + n.potpisKorisnik : null, () => { $('#f-kasnije').checked = false; });
+  $$('[data-clear]').forEach(b => b.onclick = () => (b.dataset.clear === 's' ? padS : padK).clear());
+  const imeServisera = () => { const o = $('#f-nosilac').selectedOptions[0]; $('#sig-s-name').textContent = o && o.value ? o.textContent : 'Izaberite nosioca naloga gore'; };
+  $('#f-nosilac').addEventListener('change', imeServisera); imeServisera();
 
   $('#f-klijent').addEventListener('change', () => onKlijent(true));
   $('#f-klijent').addEventListener('input', klijentHint);
@@ -357,6 +376,32 @@ function calcTravel() {
   $('#f-putni').textContent = (km * t).toFixed(2).replace('.', ',');
 }
 
+// ---------- Potpis ----------
+let padS, padK;
+function pad(cv, init, poPotpisu) {
+  const ctx = cv.getContext('2d');
+  let crta = false, potpisano = !!init, mijenjan = false, zadnja = null;
+  const reset = () => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#14202c'; };
+  reset();
+  if (init) { const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, cv.width, cv.height); im.src = init; }
+  const tacka = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  cv.addEventListener('pointerdown', e => {
+    crta = true; potpisano = true; mijenjan = true; zadnja = tacka(e); cv.setPointerCapture(e.pointerId);
+    ctx.beginPath(); ctx.arc(zadnja[0], zadnja[1], 1.4, 0, 7); ctx.fillStyle = '#14202c'; ctx.fill();
+    if (poPotpisu) poPotpisu();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!crta) return;
+    const t = tacka(e); ctx.beginPath(); ctx.moveTo(zadnja[0], zadnja[1]); ctx.lineTo(t[0], t[1]); ctx.stroke(); zadnja = t;
+  });
+  const kraj = () => { crta = false; };
+  cv.addEventListener('pointerup', kraj); cv.addEventListener('pointercancel', kraj);
+  return {
+    clear() { reset(); potpisano = false; mijenjan = true; },
+    get() { return !potpisano ? null : (!mijenjan && init) ? init : cv.toDataURL('image/png'); }
+  };
+}
+
 // ---------- Istorija i brisanje ----------
 async function ucitajIstoriju() {
   const lista = await fetch(`/api/nalozi/${nalogId}/istorija`).then(r => r.json());
@@ -396,6 +441,7 @@ async function save() {
     opisZahtjeva: $('#f-opisz').value, opisIntervencije: $('#f-opisi').value,
     putDestinacija: $('#f-dest').value.trim() || null, kmTamo: broj($('#f-km1').value), kmNazad: broj($('#f-km2').value), tarifaKm: broj($('#f-tarifa').value),
     status: getR('status'), intervencija: getR('interv'), potpisKasnije: $('#f-kasnije').checked,
+    potpisServiser: padS.get(), potpisKorisnik: padK.get(),
     uredjaji: collectDevs(), materijal: collectMats()
   };
   const b = $('#save'); b.disabled = true; $('#save-state').textContent = 'Čuvam…';

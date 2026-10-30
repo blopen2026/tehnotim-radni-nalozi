@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Potpisi
+
+- Potpisi (serviser, korisnik) se čuvaju u tabeli Nalog kao PNG (varbinary), do 500 KB.
+- Faza se određuje pri svakom čuvanju: potpis korisnika → Završen; inače „potpisuje kasnije” → Čeka potpis; inače U radu.
+- Potpis servisera nije obavezan; ime izvođača = nosilac naloga.
+
 ## 2026-10-30 – Lista naloga i brisanje
 
 - Nalog brišu samo kancelarija i administrator; broj obrisanog naloga se ne koristi ponovo (rupa u numeraciji je namjerna).

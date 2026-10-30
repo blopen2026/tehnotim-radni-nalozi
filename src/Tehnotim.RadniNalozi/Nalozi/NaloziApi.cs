@@ -97,7 +97,7 @@ public static class NaloziApi
                        UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                        Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
                        PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
-                       Kreirano, Kreirao, Izmijenjeno, Izmijenio
+                       PotpisServiser, PotpisKorisnik, Kreirano, Kreirao, Izmijenjeno, Izmijenio
                 FROM dbo.Nalog WHERE Id = @id", new { id });
             if (n is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
 
@@ -148,6 +148,23 @@ public static class NaloziApi
 
     private static string? P(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
+    private static readonly byte[] PngPotpis = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+    /// <summary>„data:image/png;base64,…” ili čist base64 → bajtovi PNG slike; prazno → null.</summary>
+    private static byte[]? PotpisIzTeksta(string? tekst)
+    {
+        if (string.IsNullOrWhiteSpace(tekst)) return null;
+        var b64 = tekst.Trim();
+        var zarez = b64.IndexOf(',');
+        if (b64.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && zarez > 0) b64 = b64[(zarez + 1)..];
+        byte[] bajtovi;
+        try { bajtovi = Convert.FromBase64String(b64); }
+        catch (FormatException) { throw new FormatException("Potpis nije ispravna slika."); }
+        if (bajtovi.Length > 500_000) throw new FormatException("Slika potpisa je prevelika.");
+        if (bajtovi.Length < 8 || !bajtovi.AsSpan(0, 8).SequenceEqual(PngPotpis)) throw new FormatException("Potpis mora biti PNG slika.");
+        return bajtovi;
+    }
+
     private static readonly Regex TelefonRx = new(@"\+?\d[\d\s/\-]{4,}\d", RegexOptions.Compiled);
     private static readonly Regex EmailRx = new(@"[^\s,;]+@[^\s,;]+\.[^\s,;]+", RegexOptions.Compiled);
 
@@ -175,6 +192,14 @@ public static class NaloziApi
         var intervencija = P(u.Intervencija);
         if (intervencija is not null && !Intervencije.Contains(intervencija)) return Greska("Nepoznata vrsta intervencije.");
         if (u.KmTamo < 0 || u.KmNazad < 0 || u.TarifaKm < 0) return Greska("Kilometri i tarifa ne mogu biti negativni.");
+
+        byte[]? potpisServiser, potpisKorisnik;
+        try
+        {
+            potpisServiser = PotpisIzTeksta(u.PotpisServiser);
+            potpisKorisnik = PotpisIzTeksta(u.PotpisKorisnik);
+        }
+        catch (FormatException ex) { return Greska(ex.Message); }
 
         var datum = u.DatumIzdavanja.Date;
         var korisnik = ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name;
@@ -298,7 +323,8 @@ public static class NaloziApi
         // Putni troškovi i faza
         decimal? putniIznos = u.TarifaKm is decimal t && (u.KmTamo is not null || u.KmNazad is not null)
             ? Math.Round(((u.KmTamo ?? 0) + (u.KmNazad ?? 0)) * t, 2) : null;
-        var faza = imaPotpisKorisnika ? "zavrsen" : u.PotpisKasnije ? "ceka_potpis" : "u_radu";
+        var faza = potpisKorisnik is not null ? "zavrsen" : u.PotpisKasnije ? "ceka_potpis" : "u_radu";
+        var potpisKasnije = potpisKorisnik is null && u.PotpisKasnije;
 
         var p = new
         {
@@ -308,7 +334,7 @@ public static class NaloziApi
             Naplata = DaNe(u.Naplata), Ugovor = DaNe(u.Ugovor), Garancija = DaNe(u.Garancija), UredjajPredao = P(u.UredjajPredao),
             u.NosilacKorisnikId, nosilacIme, OpisZahtjeva = P(u.OpisZahtjeva), OpisIntervencije = P(u.OpisIntervencije),
             PutDestinacija = P(u.PutDestinacija), u.KmTamo, u.KmNazad, u.TarifaKm, putniIznos,
-            status, intervencija, u.PotpisKasnije, faza, korisnik, id
+            status, intervencija, PotpisKasnije = potpisKasnije, potpisServiser, potpisKorisnik, faza, korisnik, id
         };
 
         int nalogId;
@@ -328,12 +354,12 @@ public static class NaloziApi
                 INSERT INTO dbo.Nalog (Godina, RedniBroj, Faza, PozivInterni, PozivEksterni, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
                     UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                     Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
-                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije, Kreirao)
+                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije, PotpisServiser, PotpisKorisnik, Kreirao)
                 OUTPUT INSERTED.Id
                 VALUES (@godina, @redniBroj, @faza, @PozivInterni, @PozivEksterni, @datum, @ZahtjevVrijeme, @PocetakRada, @ZavrsetakRada,
                     @UtrosenoVrijeme, @UtrosenoRucno, @KlijentId, @jedinicaId, @klijentNaziv, @Lokacija, @Adresa, @Kontakt,
                     @Naplata, @Ugovor, @Garancija, @UredjajPredao, @NosilacKorisnikId, @nosilacIme, @OpisZahtjeva, @OpisIntervencije,
-                    @PutDestinacija, @KmTamo, @KmNazad, @TarifaKm, @putniIznos, @status, @intervencija, @PotpisKasnije, @korisnik)",
+                    @PutDestinacija, @KmTamo, @KmNazad, @TarifaKm, @putniIznos, @status, @intervencija, @PotpisKasnije, @potpisServiser, @potpisKorisnik, @korisnik)",
                 new DynamicParameters(p).Also(d => { d.Add("godina", godina); d.Add("redniBroj", redniBroj); }), tx);
         }
         else
@@ -348,6 +374,7 @@ public static class NaloziApi
                     NosilacKorisnikId = @NosilacKorisnikId, NosilacIme = @nosilacIme, OpisZahtjeva = @OpisZahtjeva, OpisIntervencije = @OpisIntervencije,
                     PutDestinacija = @PutDestinacija, KmTamo = @KmTamo, KmNazad = @KmNazad, TarifaKm = @TarifaKm, PutniIznos = @putniIznos,
                     Status = @status, Intervencija = @intervencija, PotpisKasnije = @PotpisKasnije,
+                    PotpisServiser = @potpisServiser, PotpisKorisnik = @potpisKorisnik,
                     Izmijenjeno = SYSUTCDATETIME(), Izmijenio = @korisnik
                 WHERE Id = @id", p, tx);
             await c.ExecuteAsync("DELETE FROM dbo.NalogUredjaj WHERE NalogId = @id; DELETE FROM dbo.NalogMaterijal WHERE NalogId = @id;", new { id }, tx);
@@ -371,6 +398,11 @@ public static class NaloziApi
         // Istorija
         await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
             new { nalogId, korisnik, opis = id is null ? "Nalog kreiran" : "Nalog izmijenjen" }, tx);
+        var potpisPromjena = !imaPotpisKorisnika && potpisKorisnik is not null ? "Korisnik usluge potpisao nalog"
+                           : imaPotpisKorisnika && potpisKorisnik is null ? "Potpis korisnika uklonjen" : null;
+        if (potpisPromjena is not null)
+            await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
+                new { nalogId, korisnik, opis = potpisPromjena }, tx);
 
         var broj = postojeciBroj ?? await c.ExecuteScalarAsync<string>("SELECT Broj FROM dbo.Nalog WHERE Id = @nalogId", new { nalogId }, tx);
         await tx.CommitAsync();
