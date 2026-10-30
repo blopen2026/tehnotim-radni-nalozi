@@ -36,5 +36,4 @@ label.f span{font-size:12px;font-weight:600;text-transform:uppercase;letter-spac
 
 header .brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}
 header .brand small{font-size:12px;color:#a9b6c6;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
-.logochip{background:#fff;border-radius:6px;padding:4px 8px;display:inline-flex}
-.logochip img{height:22px;width:auto;display:block}
+header .brand img.logo{height:30px;width:auto;display:block}
