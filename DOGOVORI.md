@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Testno okruženje
+
+- Prije produkcije pravi se testni server koji simulira produkcioni: virtuelna mašina (Hyper-V) na razvojnom laptopu (16 GB RAM).
+- VM `TEST-NALOZI`: Windows Server 2022 (evaluation), 8 GB RAM fiksno, 4 vCPU, 120 GB, External prekidač `LAN`.
+- Na VM: SQL Server Express (naša baza), IIS + aplikacija, kopija ServiceDesk Plus 15200 (mail isključen).
+- Prije svakog većeg koraka checkpoint.
+
 ## 2026-10-30 – Magacin rezervnih dijelova
 
 - Magacin se vodi samo količinski (bez finansija), jedan magacin, upravlja samo administrator.
