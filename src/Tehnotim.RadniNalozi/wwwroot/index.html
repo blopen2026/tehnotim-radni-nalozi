@@ -13,7 +13,7 @@
     <p class="muted" id="pozdrav"></p>
   </div>
   <div class="card">
-    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0">Posljednji nalozi</h2><a href="nalog.html"><button class="primary">+ Novi nalog</button></a></div>
+    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0">Posljednji nalozi</h2><a href="nalozi.html">Svi nalozi →</a><a href="nalog.html"><button class="primary">+ Novi nalog</button></a></div>
     <div class="tablebox" style="margin-top:10px"><table>
       <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Faza</th></tr></thead>
       <tbody id="nalozi"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
@@ -38,7 +38,7 @@
 
   const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
   const BOJE = { u_radu: '', ceka_potpis: 'warn', zavrsen: 'ok', novo_iz_tiketa: '' };
-  const nalozi = await fetch('/api/nalozi').then(r => r.json());
+  const nalozi = (await fetch('/api/nalozi?velicina=15').then(r => r.json())).nalozi;
   document.getElementById('nalozi').innerHTML = nalozi.length ? nalozi.slice(0, 15).map(n => `<tr class="klik" data-id="${n.id}">
       <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="muted">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
       <td>${n.datumIzdavanja.slice(0, 10).split('-').reverse().join('.')}.</td>

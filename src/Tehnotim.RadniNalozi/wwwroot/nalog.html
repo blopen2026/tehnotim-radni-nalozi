@@ -79,7 +79,7 @@ const setR = (n, v) => $$(`input[name="${n}"]`).forEach(i => i.checked = i.value
 function buildForm() {
   const n = cur;
   $('#main').innerHTML = `
-  <div class="head"><a href="/">← Početna</a><h1 style="margin:0">${n.broj ? `Radni nalog <span class="mono">${esc(n.broj)}</span>` : 'Novi radni nalog'}</h1>${n.faza ? `<span class="chip ${n.faza}">${FAZE[n.faza]}</span>` : ''}</div>
+  <div class="head"><a href="nalozi.html" id="nazad">← Nalozi</a><h1 style="margin:0">${n.broj ? `Radni nalog <span class="mono">${esc(n.broj)}</span>` : 'Novi radni nalog'}</h1>${n.faza ? `<span class="chip ${n.faza}">${FAZE[n.faza]}</span>` : ''}</div>
 
   <div class="sec"><div class="lab">Nalog</div><div class="body">
     <div class="g">
@@ -144,8 +144,12 @@ function buildForm() {
     <label class="check"><input type="checkbox" id="f-kasnije"> Korisnik potpisuje kasnije (nalog ide u „Čeka potpis”)</label>
   </div></div>
 
+  ${n.id ? `<div class="sec"><div class="lab">Istorija izmjena</div><div class="body"><div id="istorija" class="muted">Učitavam…</div></div></div>` : ''}
+
   <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><span id="save-state"></span>
-    ${n.kreirao ? `<span class="muted" style="font-size:13px">Napravio: ${esc(n.kreirao)}${n.izmijenio ? ` · zadnja izmjena: ${esc(n.izmijenio)}` : ''}</span>` : ''}</div>`;
+    ${n.kreirao ? `<span class="muted" style="font-size:13px">Napravio: ${esc(n.kreirao)}${n.izmijenio ? ` · zadnja izmjena: ${esc(n.izmijenio)}` : ''}</span>` : ''}
+    <span style="flex:1"></span>
+    ${n.id && ['kancelarija', 'administrator'].includes(window.ja?.uloga) ? '<button class="ghost" id="del">Obriši nalog</button>' : ''}</div>`;
 
   $('#f-poziv').value = n.pozivInterni || ''; $('#f-pozivx').value = n.pozivEksterni || '';
   $('#f-datum').value = (n.datumIzdavanja || danas()).slice(0, 10);
@@ -178,6 +182,9 @@ function buildForm() {
   $('#add-dev').onclick = () => { const d = collectDevs(); d.push({}); renderDevRows(d); };
   $('#add-mat').onclick = () => { const m = collectMats(); m.push({}); renderMatRows(m); };
   $('#save').onclick = save;
+  if ($('#del')) $('#del').onclick = obrisi;
+  if (n.id) ucitajIstoriju();
+  if (document.referrer.includes('/nalozi.html')) $('#nazad').href = document.referrer;
 
   onKlijent(false); calcTime(); calcTravel();
 }
@@ -252,10 +259,11 @@ function renderDevRows(list) {
     r.querySelector('.d-mono').addEventListener('change', () => updateCnt(r));
     ['.d-kol', '.d-cb'].forEach(c => r.querySelector(c).addEventListener('input', () => updateCnt(r)));
     r.querySelector('.x').onclick = () => { const d = collectDevs(); d.splice(+r.dataset.i, 1); renderDevRows(d.length ? d : [{}]); };
-    if (r.dataset.uid) { r.querySelector('.d-h').textContent = '✓ Uređaj iz baze'; r.querySelector('.d-h').className = 'hint d-h ok'; ucitajPrethodni(r); }
+    if (r.dataset.uid) { r.querySelector('.d-h').innerHTML = '✓ Uređaj iz baze' + linkIstorije(r.querySelector('.d-ser').value.trim()); r.querySelector('.d-h').className = 'hint d-h ok'; ucitajPrethodni(r); }
     updateCnt(r);
   });
 }
+const linkIstorije = (ser, broj) => ser ? ` · <a href="nalozi.html?q=${encodeURIComponent(ser)}" target="_blank">istorija naloga${broj ? ' (' + broj + ')' : ''}</a>` : '';
 async function trazUredjaj(r, broj) {
   const h = r.querySelector('.d-h');
   r.dataset.uid = ''; r.prethodni = null;
@@ -269,7 +277,7 @@ async function trazUredjaj(r, broj) {
   r.querySelector('.d-inv').value = u.inventurniBroj || '';
   if (u.tipUredjajaId) r.querySelector('.d-tip').value = String(u.tipUredjajaId);
   r.querySelector('.d-mono').checked = u.samoCrnoBijeli;
-  h.textContent = '✓ ' + [u.klijentNaziv, u.jedinicaNaziv].filter(Boolean).join(' · ');
+  h.innerHTML = '✓ ' + esc([u.klijentNaziv, u.jedinicaNaziv].filter(Boolean).join(' · ')) + (u.brojNaloga ? linkIstorije(u.serijskiBroj, u.brojNaloga) : '');
   h.className = 'hint d-h ok';
   r.garancijaDo = u.garancijaDo;
   if (u.klijentNaziv && !$('#f-klijent').value.trim()) {
@@ -349,6 +357,25 @@ function calcTravel() {
   $('#f-putni').textContent = (km * t).toFixed(2).replace('.', ',');
 }
 
+// ---------- Istorija i brisanje ----------
+async function ucitajIstoriju() {
+  const lista = await fetch(`/api/nalozi/${nalogId}/istorija`).then(r => r.json());
+  $('#istorija').innerHTML = lista.length ? lista.map(i => `<div class="row" style="padding:4px 0">
+      <span>${esc(i.opis || '')} · <b>${esc(i.korisnik || '')}</b></span>
+      <span class="muted">${new Date(i.vrijeme + 'Z').toLocaleString('bs-BA')}</span></div>`).join('') : 'Nema zapisa.';
+}
+async function obrisi() {
+  const b = $('#del');
+  if (!b.dataset.potvrda) {
+    b.dataset.potvrda = 1; b.textContent = `Sigurno obrisati nalog ${cur.broj}?`; b.style.color = 'var(--accent)';
+    setTimeout(() => { if (b.isConnected) { delete b.dataset.potvrda; b.textContent = 'Obriši nalog'; b.style.color = ''; } }, 5000);
+    return;
+  }
+  const r = await fetch(`/api/nalozi/${nalogId}`, { method: 'DELETE' });
+  if (r.ok) location.href = 'nalozi.html';
+  else { const g = await r.json().catch(() => ({})); $('#save-state').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za brisanje nemate pravo.' : g.greska || 'Nalog nije obrisan.')}</span>`; }
+}
+
 // ---------- Čuvanje ----------
 const dt = v => v ? v + ':00' : null;   // datetime-local → ISO sa sekundama
 const broj = v => { const s = String(v ?? '').trim(); return s === '' ? null : num(s); };
@@ -409,7 +436,7 @@ function popuniListe() {
 }
 
 (async () => {
-  window.ja = await ucitajZaglavlje(nalogId ? '' : 'novi');
+  window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : 'novi');
   if (!ja.registrovan) return;
   [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke] = await Promise.all(
     ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/materijal', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));

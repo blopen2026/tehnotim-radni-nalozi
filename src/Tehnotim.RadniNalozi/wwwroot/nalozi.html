@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nalozi – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  .filteri{display:grid;gap:10px;grid-template-columns:2fr 1.3fr 1.1fr .9fr .9fr;align-items:end}
+  @media (max-width:760px){.filteri{grid-template-columns:1fr 1fr}.filteri .q{grid-column:1/-1}}
+  .faze{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .faze button{border-radius:999px;padding:5px 12px;font-size:13px}
+  .faze button[aria-pressed="true"]{background:var(--band);color:#fff;border-color:var(--band)}
+  .faze .mono{opacity:.75;margin-left:4px}
+  td.sitno,.sitno{font-size:13px;color:var(--muted)}
+  .chip.u_radu{background:#dde9f6;color:#1f5a96} .chip.ceka_potpis{background:var(--warn-bg);color:var(--warn)}
+  .chip.zavrsen{background:var(--ok-bg);color:var(--ok)} .chip.novo_iz_tiketa{background:var(--sunk);color:var(--ink)}
+  .strane{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="akcije" style="margin-top:0">
+      <h1 style="flex:1;margin:0">Radni nalozi</h1>
+      <a href="nalog.html"><button class="primary">+ Novi nalog</button></a>
+    </div>
+    <div class="filteri" style="margin-top:14px">
+      <label class="f q"><span>Traži</span><input id="q" type="search" placeholder="broj, zahtjev, tiket, klijent, jedinica, serijski, opis…"></label>
+      <label class="f"><span>Klijent</span><select id="klijent"><option value="">Svi</option></select></label>
+      <label class="f"><span>Nosilac</span><select id="nosilac"><option value="">Svi</option></select></label>
+      <label class="f"><span>Od datuma</span><input id="od" type="date"></label>
+      <label class="f"><span>Do datuma</span><input id="do" type="date"></label>
+    </div>
+    <div class="faze" id="faze" role="group" aria-label="Faza"></div>
+
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Uređaj</th><th>Nosilac</th><th>Faza</th></tr></thead>
+      <tbody id="lista"><tr><td colspan="6" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+    <div class="strane" id="strane"></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const FAZE = [['', 'Sve'], ['novo_iz_tiketa', 'Novo iz tiketa'], ['u_radu', 'U radu'], ['ceka_potpis', 'Čeka potpis'], ['zavrsen', 'Završen']];
+const NAZIV_FAZE = Object.fromEntries(FAZE);
+const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
+let faza = '', stranica = 1;
+
+// Filteri se pamte u adresi stranice (povratak sa naloga vraća istu listu)
+function uAdresu() {
+  const p = new URLSearchParams();
+  if ($('#q').value.trim()) p.set('q', $('#q').value.trim());
+  if ($('#klijent').value) p.set('klijentId', $('#klijent').value);
+  if ($('#nosilac').value) p.set('nosilacId', $('#nosilac').value);
+  if ($('#od').value) p.set('od', $('#od').value);
+  if ($('#do').value) p.set('do', $('#do').value);
+  if (faza) p.set('faza', faza);
+  if (stranica > 1) p.set('stranica', stranica);
+  history.replaceState(null, '', 'nalozi.html' + (p.toString() ? '?' + p : ''));
+  return p;
+}
+function izAdrese() {
+  const p = new URLSearchParams(location.search);
+  $('#q').value = p.get('q') || '';
+  $('#klijent').value = p.get('klijentId') || '';
+  $('#nosilac').value = p.get('nosilacId') || '';
+  $('#od').value = p.get('od') || '';
+  $('#do').value = p.get('do') || '';
+  faza = p.get('faza') || '';
+  stranica = parseInt(p.get('stranica') || '1', 10) || 1;
+}
+
+async function ucitaj() {
+  const p = uAdresu();
+  const d = await fetch('/api/nalozi?' + p).then(r => r.json());
+  const sve = Object.values(d.poFazama || {}).reduce((a, b) => a + b, 0);
+  $('#faze').innerHTML = FAZE.filter(([k]) => !k || k !== 'novo_iz_tiketa' || d.poFazama[k])
+    .map(([k, t]) => `<button data-f="${k}" aria-pressed="${faza === k}">${t}<span class="mono">${k ? (d.poFazama[k] || 0) : sve}</span></button>`).join('');
+  document.querySelectorAll('#faze button').forEach(b => b.onclick = () => { faza = b.dataset.f; stranica = 1; ucitaj(); });
+
+  $('#lista').innerHTML = d.nalozi.length ? d.nalozi.map(n => `<tr class="klik" data-id="${n.id}">
+      <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="sitno">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
+      <td>${fD(n.datumIzdavanja)}</td>
+      <td>${esc(n.klijentNaziv)}<div class="sitno">${esc(n.lokacija || '')}</div></td>
+      <td class="sitno">${esc(n.prviUredjaj || '')}${n.brojUredjaja > 1 ? ` <b>+${n.brojUredjaja - 1}</b>` : ''}</td>
+      <td>${esc(n.nosilacIme || '')}</td>
+      <td><span class="chip ${esc(n.faza)}">${NAZIV_FAZE[n.faza] || ''}</span></td></tr>`).join('')
+    : `<tr><td colspan="6" class="muted">${sve ? 'Nema naloga za ove filtere.' : 'Još nema naloga.'}</td></tr>`;
+  document.querySelectorAll('#lista tr[data-id]').forEach(tr => tr.onclick = () => location.href = `nalog.html?id=${tr.dataset.id}`);
+
+  const strana = Math.max(1, Math.ceil(d.ukupno / d.velicina));
+  $('#strane').innerHTML = d.ukupno ? `<span class="muted">${d.ukupno} naloga · strana ${d.stranica} od ${strana}</span>
+    <button id="pret" ${d.stranica <= 1 ? 'disabled' : ''}>← Prethodna</button>
+    <button id="sljed" ${d.stranica >= strana ? 'disabled' : ''}>Sljedeća →</button>` : '';
+  if ($('#pret')) $('#pret').onclick = () => { stranica--; ucitaj(); window.scrollTo(0, 0); };
+  if ($('#sljed')) $('#sljed').onclick = () => { stranica++; ucitaj(); window.scrollTo(0, 0); };
+}
+
+let tajmer;
+$('#q').oninput = () => { clearTimeout(tajmer); tajmer = setTimeout(() => { stranica = 1; ucitaj(); }, 300); };
+['#klijent', '#nosilac', '#od', '#do'].forEach(s => $(s).onchange = () => { stranica = 1; ucitaj(); });
+
+(async () => {
+  const ja = await ucitajZaglavlje('nalozi');
+  if (!ja.registrovan) return;
+  const [klijenti, nosioci] = await Promise.all([fetch('/api/klijenti').then(r => r.json()), fetch('/api/nosioci').then(r => r.json())]);
+  $('#klijent').innerHTML = '<option value="">Svi</option>' + klijenti.map(k => `<option value="${k.id}">${esc(k.naziv)}</option>`).join('');
+  $('#nosilac').innerHTML = '<option value="">Svi</option>' + nosioci.map(n => `<option value="${n.id}">${esc(n.ime)}</option>`).join('');
+  izAdrese();
+  ucitaj();
+})();
+</script>
+</body>
+</html>

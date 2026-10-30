@@ -51,6 +51,13 @@
         <button id="u-del">Obriši uređaj</button>
         <span id="u-poruka"></span>
       </div>
+      <div id="u-istorija" hidden style="margin-top:14px">
+        <h2>Istorija naloga</h2>
+        <div class="tablebox"><table>
+          <thead><tr><th>Nalog</th><th>Datum</th><th>Opis</th><th>Brojač</th><th>Nosilac</th></tr></thead>
+          <tbody id="u-ist-lista"></tbody>
+        </table></div>
+      </div>
     </div>
 
     <div class="tablebox" style="margin-top:12px"><table>
@@ -121,8 +128,24 @@ async function uredi(u) {
   $('#u-del').textContent = 'Obriši uređaj'; delete $('#u-del').dataset.potvrda;
   $('#u-poruka').textContent = '';
   osvjeziBrojac();
+  ucitajIstoriju(u);
   $('#forma').hidden = false;
   $('#u-ser').focus();
+}
+
+async function ucitajIstoriju(u) {
+  $('#u-istorija').hidden = !u;
+  if (!u) return;
+  $('#u-ist-lista').innerHTML = '<tr><td colspan="5" class="muted">Učitavam…</td></tr>';
+  const lista = await fetch(`/api/uredjaji/${u.id}/nalozi`).then(r => r.json());
+  $('#u-ist-lista').innerHTML = lista.length ? lista.map(n => `<tr class="klik" data-nalog="${n.id}">
+      <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="sitno">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
+      <td>${fD(n.datumIzdavanja)}</td>
+      <td class="sitno">${esc(n.opis || '')}${n.status ? `<div><b>${esc(n.status)}</b></div>` : ''}</td>
+      <td class="mono sitno">${n.kolor != null || n.cb != null ? (n.kolor != null ? 'K ' + n.kolor + ' · ' : '') + 'CB ' + (n.cb ?? '—') : ''}</td>
+      <td class="sitno">${esc(n.nosilacIme || '')}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted">Uređaj se još ne pojavljuje ni u jednom nalogu.</td></tr>';
+  document.querySelectorAll('#u-ist-lista tr[data-nalog]').forEach(tr => tr.onclick = () => location.href = `nalog.html?id=${tr.dataset.nalog}`);
 }
 
 $('#novi').onclick = () => uredi(null);

@@ -103,6 +103,19 @@ public static class UredjajiApi
                 GROUP BY Model ORDER BY Model"));
         });
 
+        // Istorija: svi nalozi u kojima se uređaj pojavljuje, najnoviji prvi
+        uredjaji.MapGet("/{id:int}/nalozi", async (int id) =>
+        {
+            await using var c = Veza();
+            return Results.Ok(await c.QueryAsync(@"
+                SELECT n.Id, n.Broj, n.Faza, n.DatumIzdavanja, n.PozivInterni, n.NosilacIme, n.Status,
+                       LEFT(COALESCE(NULLIF(n.OpisIntervencije, ''), n.OpisZahtjeva), 120) AS Opis,
+                       nu.Kolor, nu.CB
+                FROM dbo.NalogUredjaj nu JOIN dbo.Nalog n ON n.Id = nu.NalogId
+                WHERE nu.UredjajId = @id
+                ORDER BY n.DatumIzdavanja DESC, n.Id DESC", new { id }));
+        });
+
         uredjaji.MapGet("/{id:int}", async (int id) =>
         {
             await using var c = Veza();

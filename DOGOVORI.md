@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Lista naloga i brisanje
+
+- Nalog brišu samo kancelarija i administrator; broj obrisanog naloga se ne koristi ponovo (rupa u numeraciji je namjerna).
+- Pri brisanju se brojač uređaja vraća na zadnji preostali nalog s brojačem.
+- Istorija uređaja za servisere: link iz forme naloga na listu naloga filtriranu po serijskom broju.
+
 ## 2026-10-30 – Test kopija ServiceDesk Plus
 
 - Za fazu 2 pravi se test kopija SDP na razvojnom laptopu; mora biti **build 15200** kao radni sistem (test instalacija je bila 15100 → nadograditi).

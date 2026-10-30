@@ -134,4 +134,6 @@ public class NalogUListi
     public string? NosilacIme { get; set; }
     public string? PozivInterni { get; set; }
     public string? PozivEksterni { get; set; }
+    public string? PrviUredjaj { get; set; }
+    public int BrojUredjaja { get; set; }
 }

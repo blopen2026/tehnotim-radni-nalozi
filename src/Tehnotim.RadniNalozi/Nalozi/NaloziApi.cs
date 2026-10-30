@@ -20,14 +20,74 @@ public static class NaloziApi
     {
         var nalozi = app.MapGroup("/api/nalozi").RequireAuthorization(Politike.Korisnik);
 
-        // Posljednji nalozi (puna lista s pretragom dolazi u koraku 8b)
-        nalozi.MapGet("", async () =>
+        // Lista naloga s pretragom i filterima; najnoviji prvi, po stranicama
+        nalozi.MapGet("", async (string? q, string? faza, int? klijentId, int? nosilacId, DateTime? od, DateTime? @do,
+                                 int? stranica, int? velicina) =>
+        {
+            var vel = Math.Clamp(velicina ?? 50, 1, 200);
+            var str = Math.Max(stranica ?? 1, 1);
+            var trazi = string.IsNullOrWhiteSpace(q) ? null : "%" + q.Trim() + "%";
+            var p = new { trazi, klijentId, nosilacId, od = od?.Date, doDatum = @do?.Date, faza, preskoci = (str - 1) * vel, vel };
+
+            const string uslovBezFaze = @"
+                WHERE (@klijentId IS NULL OR n.KlijentId = @klijentId)
+                  AND (@nosilacId IS NULL OR n.NosilacKorisnikId = @nosilacId)
+                  AND (@od IS NULL OR n.DatumIzdavanja >= @od)
+                  AND (@doDatum IS NULL OR n.DatumIzdavanja <= @doDatum)
+                  AND (@trazi IS NULL OR n.Broj LIKE @trazi OR n.PozivInterni LIKE @trazi OR n.PozivEksterni LIKE @trazi
+                       OR n.KlijentNaziv LIKE @trazi OR n.Lokacija LIKE @trazi OR n.NosilacIme LIKE @trazi
+                       OR n.OpisZahtjeva LIKE @trazi OR n.OpisIntervencije LIKE @trazi
+                       OR EXISTS (SELECT 1 FROM dbo.NalogUredjaj nu WHERE nu.NalogId = n.Id
+                                  AND (nu.SerijskiBroj LIKE @trazi OR nu.InventurniBroj LIKE @trazi OR nu.Model LIKE @trazi)))";
+            const string uslov = uslovBezFaze + " AND (@faza IS NULL OR n.Faza = @faza)";
+
+            await using var c = new SqlConnection(connectionString);
+            var lista = await c.QueryAsync<NalogUListi>(@"
+                SELECT n.Id, n.Broj, n.Faza, n.DatumIzdavanja, n.KlijentNaziv, n.Lokacija, n.NosilacIme, n.PozivInterni, n.PozivEksterni,
+                       (SELECT TOP 1 CONCAT(nu.Model, CASE WHEN nu.Model IS NOT NULL AND nu.SerijskiBroj IS NOT NULL THEN ' · ' END, nu.SerijskiBroj)
+                        FROM dbo.NalogUredjaj nu WHERE nu.NalogId = n.Id ORDER BY nu.Redoslijed) AS PrviUredjaj,
+                       (SELECT COUNT(*) FROM dbo.NalogUredjaj nu WHERE nu.NalogId = n.Id) AS BrojUredjaja
+                FROM dbo.Nalog n" + uslov + @"
+                ORDER BY n.DatumIzdavanja DESC, n.Id DESC
+                OFFSET @preskoci ROWS FETCH NEXT @vel ROWS ONLY", p);
+            var ukupno = await c.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM dbo.Nalog n" + uslov, p);
+            var poFazama = (await c.QueryAsync<(string Faza, int Broj)>(
+                "SELECT n.Faza, COUNT(*) FROM dbo.Nalog n" + uslovBezFaze + " GROUP BY n.Faza", p))
+                .ToDictionary(x => x.Faza, x => x.Broj);
+            return Results.Ok(new { nalozi = lista, ukupno, stranica = str, velicina = vel, poFazama });
+        });
+
+        // Ko je i kad mijenjao nalog
+        nalozi.MapGet("/{id:int}/istorija", async (int id) =>
         {
             await using var c = new SqlConnection(connectionString);
-            return Results.Ok(await c.QueryAsync<NalogUListi>(@"
-                SELECT TOP 100 Id, Broj, Faza, DatumIzdavanja, KlijentNaziv, Lokacija, NosilacIme, PozivInterni, PozivEksterni
-                FROM dbo.Nalog ORDER BY Id DESC"));
+            return Results.Ok(await c.QueryAsync(
+                "SELECT Vrijeme, Korisnik, Opis FROM dbo.NalogIzmjena WHERE NalogId = @id ORDER BY Vrijeme DESC, Id DESC", new { id }));
         });
+
+        // Brisanje (kancelarija, administrator). Broj se ne koristi ponovo; brojač uređaja se vraća na zadnji preostali nalog.
+        nalozi.MapDelete("/{id:int}", async (int id) =>
+        {
+            await using var c = new SqlConnection(connectionString);
+            await c.OpenAsync();
+            await using DbTransaction tx = await c.BeginTransactionAsync();
+            var uredjaji = (await c.QueryAsync<int>(
+                "SELECT DISTINCT UredjajId FROM dbo.NalogUredjaj WHERE NalogId = @id AND UredjajId IS NOT NULL AND (Kolor IS NOT NULL OR CB IS NOT NULL)",
+                new { id }, tx)).ToList();
+            var n = await c.ExecuteAsync("DELETE FROM dbo.Nalog WHERE Id = @id", new { id }, tx);
+            if (n == 0) return Results.NotFound(new { greska = "Nalog ne postoji." });
+            foreach (var uid in uredjaji)
+                await c.ExecuteAsync(@"
+                    UPDATE u SET ZadnjiKolor = z.Kolor, ZadnjiCB = z.CB, BrojacDatum = z.DatumIzdavanja
+                    FROM dbo.Uredjaj u
+                    CROSS APPLY (SELECT TOP 1 nu.Kolor, nu.CB, nn.DatumIzdavanja
+                                 FROM dbo.NalogUredjaj nu JOIN dbo.Nalog nn ON nn.Id = nu.NalogId
+                                 WHERE nu.UredjajId = u.Id AND (nu.Kolor IS NOT NULL OR nu.CB IS NOT NULL)
+                                 ORDER BY nn.DatumIzdavanja DESC, nn.Id DESC) z
+                    WHERE u.Id = @uid", new { uid }, tx);
+            await tx.CommitAsync();
+            return Results.Ok();
+        }).RequireAuthorization(Politike.Kancelarija);
 
         nalozi.MapGet("/{id:int}", async (int id) =>
         {
