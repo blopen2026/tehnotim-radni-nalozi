@@ -15,7 +15,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 8a. (2026-10-29) Forma naloga (prema prototipu) i čuvanje – uputstvo: `docs/korak-08a-forma-naloga.md`
 - [x] 8b. (2026-10-30) Lista naloga, pretraga, filter po fazama, istorija po uređaju, istorija izmjena, brisanje – uputstvo: `docs/korak-08b-lista-naloga.md`
 - [x] 9. (2026-10-30) Potpisi na ekranu – uputstvo: `docs/korak-09-potpisi.md`
-- [ ] 10. PDF prema prototipu i direktna štampa
+- [ ] 10. PDF prema prototipu i direktna štampa – uputstvo: `docs/korak-10-pdf-stampa.md`
 - [ ] 11. Prenos podataka iz probne verzije
 - [ ] 12. Instalacija na Windows server (IIS), HTTPS, rezervne kopije
 

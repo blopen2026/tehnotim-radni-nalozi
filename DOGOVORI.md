@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – PDF
+
+- PDF pravi server (PDFsharp 6.1, MIT licenca), font Arial iz Windows foldera s fontovima (server mora imati Arial – standardno ima).
+- Raspored PDF-a = prototip (dvije mreže kolona: gornji dio do Garancije, donji dio od „Datum i vrijeme zahtjeva”).
+- Štampa: PDF se učita u skriveni okvir i otvara se dijalog za štampu preglednika.
+- Podaci firme u zaglavlju i podnožju PDF-a dolaze iz Šifarnika (Podaci firme), logo iz `wwwroot/img/logo.png`.
+
 ## 2026-10-30 – Potpisi
 
 - Potpisi (serviser, korisnik) se čuvaju u tabeli Nalog kao PNG (varbinary), do 500 KB.

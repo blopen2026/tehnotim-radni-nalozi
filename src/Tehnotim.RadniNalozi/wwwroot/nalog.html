@@ -159,7 +159,7 @@ function buildForm() {
 
   ${n.id ? `<div class="sec"><div class="lab">Istorija izmjena</div><div class="body"><div id="istorija" class="muted">Učitavam…</div></div></div>` : ''}
 
-  <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><span id="save-state"></span>
+  <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><button id="print">Štampaj</button><button id="pdf">Sačuvaj PDF</button><span id="save-state"></span>
     ${n.kreirao ? `<span class="muted" style="font-size:13px">Napravio: ${esc(n.kreirao)}${n.izmijenio ? ` · zadnja izmjena: ${esc(n.izmijenio)}` : ''}</span>` : ''}
     <span style="flex:1"></span>
     ${n.id && ['kancelarija', 'administrator'].includes(window.ja?.uloga) ? '<button class="ghost" id="del">Obriši nalog</button>' : ''}</div>`;
@@ -201,6 +201,9 @@ function buildForm() {
   $('#add-dev').onclick = () => { const d = collectDevs(); d.push({}); renderDevRows(d); };
   $('#add-mat').onclick = () => { const m = collectMats(); m.push({}); renderMatRows(m); };
   $('#save').onclick = save;
+  $('#print').onclick = stampaj;
+  $('#pdf').onclick = preuzmiPdf;
+  izmjene = false;
   if ($('#del')) $('#del').onclick = obrisi;
   if (n.id) ucitajIstoriju();
   if (document.referrer.includes('/nalozi.html')) $('#nazad').href = document.referrer;
@@ -458,7 +461,36 @@ async function save() {
     // Svježi šifarnici (novi model, materijal, jedinica)
     [S.modeli, S.materijal] = await Promise.all([fetch('/api/uredjaji/modeli').then(x => x.json()), fetch('/api/materijal').then(x => x.json())]);
     popuniListe();
+    return true;
   } finally { const bb = $('#save'); if (bb) bb.disabled = false; }
+}
+
+// ---------- PDF i štampa ----------
+// Ako ima nesačuvanih izmjena, nalog se prvo sačuva (PDF se pravi iz baze)
+let izmjene = false;
+async function prijePdfa() {
+  if (!nalogId || izmjene) { if (!(await save())) return false; }
+  return true;
+}
+async function stampaj() {
+  if (!(await prijePdfa())) return;
+  const url = `/api/nalozi/${nalogId}/pdf`;
+  document.getElementById('okvir-stampe')?.remove();
+  const f = document.createElement('iframe');
+  f.id = 'okvir-stampe';
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  f.onload = () => setTimeout(() => {
+    try { f.contentWindow.focus(); f.contentWindow.print(); }
+    catch { window.open(url, '_blank'); }
+  }, 400);
+  f.src = url;
+  document.body.appendChild(f);
+}
+async function preuzmiPdf() {
+  if (!(await prijePdfa())) return;
+  const a = document.createElement('a');
+  a.href = `/api/nalozi/${nalogId}/pdf?preuzmi=true`;
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 async function ucitajNalog() {
@@ -480,6 +512,13 @@ function popuniListe() {
   $('#dl-modeli').innerHTML = S.modeli.map(m => `<option value="${esc(m.model)}">`).join('');
   $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">`).join('');
 }
+
+['input', 'change'].forEach(ev => $('#main').addEventListener(ev, () => { izmjene = true; }));
+$('#main').addEventListener('pointerdown', e => { if (e.target.tagName === 'CANVAS') izmjene = true; });
+$('#main').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b && !['save', 'print', 'pdf', 'del'].includes(b.id)) izmjene = true;
+});
 
 (async () => {
   window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : 'novi');

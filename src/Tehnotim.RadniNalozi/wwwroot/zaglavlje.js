@@ -14,7 +14,7 @@ async function ucitajZaglavlje(aktivna) {
   if (ja.uloga === 'administrator') meni.push(['korisnici', '/korisnici.html', 'Korisnici']);
 
   const h = document.createElement('header');
-  h.innerHTML = `<span class="brand">Tehnotim · Radni nalozi</span>
+  h.innerHTML = `<a class="brand" href="/"><span class="logochip"><img src="/img/logo.png" alt="Tehnotim"></span><small>Radni nalozi</small></a>
     <nav>${ja.registrovan ? meni.map(([k, url, t]) => `<a href="${url}" class="${k === aktivna ? 'akt' : ''}">${t}</a>`).join('') : ''}</nav>
     <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span>`;
   document.body.prepend(h);

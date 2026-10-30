@@ -91,24 +91,8 @@ public static class NaloziApi
 
         nalozi.MapGet("/{id:int}", async (int id) =>
         {
-            await using var c = new SqlConnection(connectionString);
-            var n = await c.QuerySingleOrDefaultAsync<NalogDetalji>(@"
-                SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
-                       UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
-                       Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
-                       PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
-                       PotpisServiser, PotpisKorisnik, Kreirano, Kreirao, Izmijenjeno, Izmijenio
-                FROM dbo.Nalog WHERE Id = @id", new { id });
-            if (n is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
-
-            n.Uredjaji = (await c.QueryAsync<NalogUredjajDetalji>(@"
-                SELECT nu.UredjajId, nu.SerijskiBroj, nu.Model, nu.InventurniBroj, nu.TipUredjajaId,
-                       ISNULL(t.PratiBrojac, 0) AS PratiBrojac, nu.SamoCrnoBijeli, nu.Kolor, nu.CB
-                FROM dbo.NalogUredjaj nu LEFT JOIN dbo.TipUredjaja t ON t.Id = nu.TipUredjajaId
-                WHERE nu.NalogId = @id ORDER BY nu.Redoslijed", new { id })).ToList();
-            n.Materijal = (await c.QueryAsync<NalogMaterijalDetalji>(
-                "SELECT Naziv, Kolicina, BrojOtpremnice FROM dbo.NalogMaterijal WHERE NalogId = @id ORDER BY Redoslijed", new { id })).ToList();
-            return Results.Ok(n);
+            var n = await UcitajAsync(connectionString, id);
+            return n is null ? Results.NotFound(new { greska = "Nalog ne postoji." }) : Results.Ok(n);
         });
 
         // Prethodno stanje brojača uređaja: zadnji drugi nalog s brojačem; za novi nalog i ručno upisano stanje
@@ -130,6 +114,29 @@ public static class NaloziApi
 
         nalozi.MapPost("", (NalogUnos u, ClaimsPrincipal ko) => Sacuvaj(connectionString, null, u, ko));
         nalozi.MapPut("/{id:int}", (int id, NalogUnos u, ClaimsPrincipal ko) => Sacuvaj(connectionString, id, u, ko));
+    }
+
+    /// <summary>Nalog sa uređajima i materijalom (za formu i PDF); null ako ne postoji.</summary>
+    public static async Task<NalogDetalji?> UcitajAsync(string connectionString, int id)
+    {
+        await using var c = new SqlConnection(connectionString);
+        var n = await c.QuerySingleOrDefaultAsync<NalogDetalji>(@"
+            SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
+                   UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
+                   Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
+                   PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
+                   PotpisServiser, PotpisKorisnik, Kreirano, Kreirao, Izmijenjeno, Izmijenio
+            FROM dbo.Nalog WHERE Id = @id", new { id });
+        if (n is null) return null;
+
+        n.Uredjaji = (await c.QueryAsync<NalogUredjajDetalji>(@"
+            SELECT nu.UredjajId, nu.SerijskiBroj, nu.Model, nu.InventurniBroj, nu.TipUredjajaId,
+                   ISNULL(t.PratiBrojac, 0) AS PratiBrojac, nu.SamoCrnoBijeli, nu.Kolor, nu.CB
+            FROM dbo.NalogUredjaj nu LEFT JOIN dbo.TipUredjaja t ON t.Id = nu.TipUredjajaId
+            WHERE nu.NalogId = @id ORDER BY nu.Redoslijed", new { id })).ToList();
+        n.Materijal = (await c.QueryAsync<NalogMaterijalDetalji>(
+            "SELECT Naziv, Kolicina, BrojOtpremnice FROM dbo.NalogMaterijal WHERE NalogId = @id ORDER BY Redoslijed", new { id })).ToList();
+        return n;
     }
 
     public class PrethodniBrojac
