@@ -4,10 +4,10 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
 header{background:var(--band);color:#fff;padding:10px 0}
-header .traka{max-width:900px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap}
+header .traka{max-width:900px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
 header .brand{font-weight:700;font-size:18px}
-header nav{display:flex;gap:4px;flex:1;flex-wrap:wrap}
-header nav a{color:#e6ecf3;text-decoration:none;font-weight:600;padding:6px 10px;border-radius:6px}
+header nav{display:flex;gap:2px;flex:1;flex-wrap:wrap}
+header nav a{color:#e6ecf3;text-decoration:none;font-weight:600;font-size:14px;padding:6px 8px;border-radius:6px}
 header nav a:hover{color:#fff;background:rgba(255,255,255,.12)}
 header nav a.akt{color:#fff;background:rgba(255,255,255,.16);box-shadow:inset 0 -2px 0 var(--accent)}
 header .ja{font-size:13px;color:#e6ecf3;text-align:right}
@@ -37,4 +37,4 @@ label.f span{font-size:12px;font-weight:600;text-transform:uppercase;letter-spac
 .greska{color:var(--bad);font-weight:600}
 
 header .brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}
-header .brand img.logo{height:30px;width:auto;display:block}
+header .brand img.logo{height:26px;width:auto;display:block}
