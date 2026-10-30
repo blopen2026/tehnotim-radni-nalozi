@@ -17,10 +17,13 @@ async function ucitajZaglavlje(aktivna) {
   }
 
   const h = document.createElement('header');
-  h.innerHTML = `<a class="brand" href="/" title="Početna"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"></a>
+  h.innerHTML = `<div class="traka"><a class="brand" href="/" title="Početna"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"></a>
     <nav>${ja.registrovan ? meni.map(([k, url, t]) => `<a href="${url}" class="${k === aktivna ? 'akt' : ''}">${t}</a>`).join('') : ''}</nav>
-    <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span>`;
+    <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span></div>`;
   document.body.prepend(h);
+  // Traka menija iste širine kao sadržaj stranice ispod (stranice imaju različite širine)
+  const m = document.querySelector('main');
+  if (m) h.querySelector('.traka').style.maxWidth = getComputedStyle(m).maxWidth;
 
   if (!ja.registrovan) {
     document.querySelector('main').innerHTML = `<div class="card">
