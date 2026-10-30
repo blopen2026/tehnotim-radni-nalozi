@@ -475,15 +475,25 @@ async function prijePdfa() {
 async function stampaj() {
   if (!(await prijePdfa())) return;
   const url = `/api/nalozi/${nalogId}/pdf`;
+  $('#save-state').textContent = 'Pripremam štampu…';
+  // Prvo provjera da je PDF napravljen; greška se prikaže umjesto da se odštampa
+  const r = await fetch(url);
+  if (!r.ok || !(r.headers.get('content-type') || '').includes('pdf')) {
+    const t = await r.text().catch(() => '');
+    $('#save-state').innerHTML = `<span class="greska">PDF nije napravljen (${r.status}). Pošaljite ovu poruku: ${esc(t.slice(0, 300))}</span>`;
+    return;
+  }
+  const blobUrl = URL.createObjectURL(await r.blob());
   document.getElementById('okvir-stampe')?.remove();
   const f = document.createElement('iframe');
   f.id = 'okvir-stampe';
-  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  // Okvir mora imati pravu veličinu da preglednik iscrta PDF; sklonjen je van ekrana
+  f.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;height:1100px;border:0';
   f.onload = () => setTimeout(() => {
-    try { f.contentWindow.focus(); f.contentWindow.print(); }
-    catch { window.open(url, '_blank'); }
-  }, 400);
-  f.src = url;
+    try { f.contentWindow.focus(); f.contentWindow.print(); $('#save-state').textContent = ''; }
+    catch { window.open(blobUrl, '_blank'); $('#save-state').textContent = 'PDF je otvoren u novoj kartici – štampajte ga odatle.'; }
+  }, 700);
+  f.src = blobUrl;
   document.body.appendChild(f);
 }
 async function preuzmiPdf() {
