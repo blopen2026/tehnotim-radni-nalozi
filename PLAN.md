@@ -13,7 +13,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 6. (2026-10-29) Klijenti i poslovne jedinice, uvoz iz Excela – uputstvo: `docs/korak-06-klijenti.md`
 - [x] 7. (2026-10-29) Uređaji – uputstvo: `docs/korak-07-uredjaji.md`
 - [x] 8a. (2026-10-29) Forma naloga (prema prototipu) i čuvanje – uputstvo: `docs/korak-08a-forma-naloga.md`
-- [ ] 8b. Lista naloga, pretraga, filter po fazama, istorija po uređaju, istorija izmjena, brisanje – uputstvo: `docs/korak-08b-lista-naloga.md`
+- [x] 8b. (2026-10-30) Lista naloga, pretraga, filter po fazama, istorija po uređaju, istorija izmjena, brisanje – uputstvo: `docs/korak-08b-lista-naloga.md`
 - [ ] 9. Potpisi na ekranu
 - [ ] 10. PDF prema prototipu i direktna štampa
 - [ ] 11. Prenos podataka iz probne verzije
