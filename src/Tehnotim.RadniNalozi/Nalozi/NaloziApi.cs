@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Tehnotim.RadniNalozi.Magacin;
 using Tehnotim.RadniNalozi.Prijava;
 
 namespace Tehnotim.RadniNalozi.Nalozi;
@@ -66,11 +67,16 @@ public static class NaloziApi
         });
 
         // Brisanje (kancelarija, administrator). Broj se ne koristi ponovo; brojač uređaja se vraća na zadnji preostali nalog.
-        nalozi.MapDelete("/{id:int}", async (int id) =>
+        nalozi.MapDelete("/{id:int}", async (int id, ClaimsPrincipal ko) =>
         {
             await using var c = new SqlConnection(connectionString);
             await c.OpenAsync();
             await using DbTransaction tx = await c.BeginTransactionAsync();
+            var brojNaloga = await c.ExecuteScalarAsync<string?>("SELECT Broj FROM dbo.Nalog WITH (UPDLOCK) WHERE Id = @id", new { id }, tx);
+            if (brojNaloga is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
+            // Materijal iz naloga se vraća na stanje magacina
+            var stare = await Knjizenje.StareStavkeAsync(c, tx, id);
+            await Knjizenje.KnjiziAsync(c, tx, id, brojNaloga, stare, [], ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name);
             var uredjaji = (await c.QueryAsync<int>(
                 "SELECT DISTINCT UredjajId FROM dbo.NalogUredjaj WHERE NalogId = @id AND UredjajId IS NOT NULL AND (Kolor IS NOT NULL OR CB IS NOT NULL)",
                 new { id }, tx)).ToList();
@@ -135,7 +141,9 @@ public static class NaloziApi
             FROM dbo.NalogUredjaj nu LEFT JOIN dbo.TipUredjaja t ON t.Id = nu.TipUredjajaId
             WHERE nu.NalogId = @id ORDER BY nu.Redoslijed", new { id })).ToList();
         n.Materijal = (await c.QueryAsync<NalogMaterijalDetalji>(
-            "SELECT Naziv, Kolicina, BrojOtpremnice FROM dbo.NalogMaterijal WHERE NalogId = @id ORDER BY Redoslijed", new { id })).ToList();
+            @"SELECT nm.MaterijalId, nm.KomadId, nm.Naziv, nm.PN, nm.SerijskiBroj, nm.Kolicina, nm.BrojOtpremnice, ISNULL(m.VodiSeSN, 0) AS VodiSeSN
+              FROM dbo.NalogMaterijal nm LEFT JOIN dbo.Materijal m ON m.Id = nm.MaterijalId
+              WHERE nm.NalogId = @id ORDER BY nm.Redoslijed", new { id })).ToList();
         return n;
     }
 
@@ -316,16 +324,10 @@ public static class NaloziApi
             stavkeUredjaja.Add((uredjajId, r, kolor, cb));
         }
 
-        // Materijal: novi naziv se dodaje u šifarnik
-        var stavkeMaterijala = new List<(int MaterijalId, string Naziv, decimal? Kolicina, string? Otpremnica)>();
-        foreach (var m in u.Materijal ?? [])
-        {
-            var naziv = P(m.Naziv);
-            if (naziv is null) continue;
-            var mid = await c.ExecuteScalarAsync<int?>("SELECT Id FROM dbo.Materijal WHERE Naziv = @naziv", new { naziv }, tx)
-                      ?? await c.ExecuteScalarAsync<int>("INSERT INTO dbo.Materijal (Naziv) OUTPUT INSERTED.Id VALUES (@naziv)", new { naziv }, tx);
-            stavkeMaterijala.Add((mid, naziv, m.Kolicina, P(m.BrojOtpremnice)));
-        }
+        // Materijal: povezivanje s magacinom (artikal, komad po SN); knjiženje razlike je niže, kad je poznat broj naloga
+        var stareStavke = id is null ? new List<StavkaMaterijala>() : await Knjizenje.StareStavkeAsync(c, tx, id.Value);
+        var (stavkeMaterijala, greskaMaterijala) = await Knjizenje.PripremiAsync(c, tx, u.Materijal ?? [], id, stareStavke);
+        if (greskaMaterijala is not null) return Greska(greskaMaterijala);
 
         // Putni troškovi i faza
         decimal? putniIznos = u.TarifaKm is decimal t && (u.KmTamo is not null || u.KmNazad is not null)
@@ -396,11 +398,18 @@ public static class NaloziApi
                 new { nalogId, red = ++red, uredjajId, ser = r.SerijskiBroj, model = r.Model, inv = r.InventurniBroj, tip = r.TipUredjajaId,
                       samoCb = r.SamoCrnoBijeli, kolor, cb }, tx);
         red = 0;
-        foreach (var (mid, naziv, kolicina, otpremnica) in stavkeMaterijala)
+        foreach (var m in stavkeMaterijala)
             await c.ExecuteAsync(@"
-                INSERT INTO dbo.NalogMaterijal (NalogId, Redoslijed, MaterijalId, Naziv, Kolicina, BrojOtpremnice)
-                VALUES (@nalogId, @red, @mid, @naziv, @kolicina, @otpremnica)",
-                new { nalogId, red = ++red, mid, naziv, kolicina, otpremnica }, tx);
+                INSERT INTO dbo.NalogMaterijal (NalogId, Redoslijed, MaterijalId, Naziv, Kolicina, BrojOtpremnice, PN, SerijskiBroj, KomadId,
+                                                VanMagacinaRijeseno, VanMagacinaNapomena)
+                VALUES (@nalogId, @red, @MaterijalId, @Naziv, @Kolicina, @BrojOtpremnice, @PN, @SerijskiBroj, @KomadId,
+                        @VanMagacinaRijeseno, @VanMagacinaNapomena)",
+                new { nalogId, red = ++red, m.MaterijalId, m.Naziv, m.Kolicina, m.BrojOtpremnice, m.PN, m.SerijskiBroj, m.KomadId,
+                      m.VanMagacinaRijeseno, m.VanMagacinaNapomena }, tx);
+
+        // Magacin: knjiži se samo razlika u odnosu na prethodno čuvanje
+        var broj = postojeciBroj ?? await c.ExecuteScalarAsync<string>("SELECT Broj FROM dbo.Nalog WHERE Id = @nalogId", new { nalogId }, tx);
+        var upozorenja = await Knjizenje.KnjiziAsync(c, tx, nalogId, broj, stareStavke, stavkeMaterijala, korisnik);
 
         // Istorija
         await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
@@ -411,9 +420,8 @@ public static class NaloziApi
             await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
                 new { nalogId, korisnik, opis = potpisPromjena }, tx);
 
-        var broj = postojeciBroj ?? await c.ExecuteScalarAsync<string>("SELECT Broj FROM dbo.Nalog WHERE Id = @nalogId", new { nalogId }, tx);
         await tx.CommitAsync();
-        return Results.Ok(new { id = nalogId, broj, faza });
+        return Results.Ok(new { id = nalogId, broj, faza, upozorenja });
     }
 
     /// <summary>Mala pomoć: izvrši akciju nad objektom i vrati ga (za DynamicParameters).</summary>

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Magacin – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  td.sitno,.sitno{font-size:13px;color:var(--muted)}
+  .sazetak{display:flex;gap:8px;flex-wrap:wrap}
+  .sazetak button{border-radius:999px;padding:5px 12px;font-size:13px}
+  .filteri{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .filteri button{border-radius:999px;padding:5px 12px;font-size:13px}
+  .filteri button[aria-pressed="true"]{background:var(--band);color:#fff;border-color:var(--band)}
+  .stanje{font:700 14px Consolas,monospace;padding:2px 8px;border-radius:6px;display:inline-block;min-width:3.5em;text-align:right}
+  .stanje.minus{background:var(--bad-bg);color:var(--bad)} .stanje.malo{background:var(--warn-bg);color:var(--warn)} .stanje.ok{background:var(--ok-bg);color:var(--ok)}
+  .dio{background:var(--sunk);border-radius:8px;padding:14px;display:grid;gap:10px}
+  .dio input,.dio select,.dio textarea{background:var(--surface)}
+  textarea{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-height:90px}
+  .dva{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .plus{color:var(--ok);font-weight:700} .minusk{color:var(--bad);font-weight:700}
+  .van td input{min-width:140px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Magacin rezervnih dijelova</h1>
+    <p class="muted">Vodi se samo količinski. Artikal po količini ima PN i stanje; artikal po serijskom broju vodi svaki komad posebno (SN).
+      Utrošeni materijal iz naloga skida se sa stanja automatski pri čuvanju naloga.</p>
+    <div class="sazetak" id="sazetak"></div>
+  </div>
+
+  <div class="card">
+    <div class="akcije" style="margin-top:0">
+      <h2 style="flex:1;margin:0">Artikli</h2>
+      <button class="primary" id="novi">+ Novi artikal</button>
+    </div>
+    <div class="akcije">
+      <input id="trazi" type="search" placeholder="Naziv ili PN" style="max-width:280px">
+      <div class="filteri" id="filteri">
+        <button data-f="" aria-pressed="true">Svi aktivni</button>
+        <button data-f="minus" aria-pressed="false">U minusu</button>
+        <button data-f="malo" aria-pressed="false">Ispod minimuma</button>
+        <button data-f="neaktivni" aria-pressed="false">Neaktivni</button>
+      </div>
+    </div>
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Naziv</th><th>PN</th><th>Vodi se</th><th style="text-align:right">Stanje</th><th>Min.</th></tr></thead>
+      <tbody id="artikli"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" id="detalj" hidden>
+    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0" id="d-naslov">Novi artikal</h2><button id="d-zatvori">Zatvori</button></div>
+    <div class="grid">
+      <label class="f"><span>Naziv</span><input id="a-naziv"></label>
+      <label class="f"><span>PN (product number)</span><input id="a-pn" class="mono"></label>
+      <label class="f"><span>Vodi se</span><select id="a-sn"><option value="0">po količini</option><option value="1">po serijskom broju (SN)</option></select></label>
+      <label class="f"><span>Minimalna količina (upozorenje)</span><input id="a-min" type="number" min="0" step="1"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="a-aktivan" checked style="width:auto"> Aktivan (nudi se u nalozima)</label>
+    <div class="akcije"><button class="primary" id="a-sac">Sačuvaj artikal</button><button id="a-del">Obriši artikal</button><span id="a-poruka"></span></div>
+
+    <div id="d-rad" hidden style="margin-top:16px;display:grid;gap:14px">
+      <div class="akcije" style="margin:0"><span class="muted">Trenutno stanje:</span><span class="stanje" id="d-stanje"></span></div>
+      <div class="dva">
+        <div class="dio">
+          <h2 style="margin:0">Prijem robe</h2>
+          <label class="f" id="p-kol-w"><span>Primljena količina</span><input id="p-kol" type="number" min="0" step="1"></label>
+          <label class="f" id="p-sn-w"><span>Serijski brojevi (svaki u svom redu)</span><textarea id="p-sn" class="mono" placeholder="SN123456&#10;SN123457"></textarea></label>
+          <label class="f"><span>Otpremnica / dobavljač</span><input id="p-dok"></label>
+          <label class="f"><span>Napomena</span><input id="p-nap"></label>
+          <div><button class="primary" id="p-btn">Primi u magacin</button> <span id="p-poruka"></span></div>
+        </div>
+        <div class="dio" id="k-dio">
+          <h2 style="margin:0">Korekcija stanja (inventura)</h2>
+          <label class="f"><span>Novo stanje</span><input id="k-novo" type="number" step="1"></label>
+          <label class="f"><span>Razlog (obavezno)</span><input id="k-razlog" placeholder="npr. inventura 31.12., oštećeno, greška pri unosu"></label>
+          <div><button id="k-btn">Ispravi stanje</button> <span id="k-poruka"></span></div>
+        </div>
+      </div>
+      <div id="komadi-dio">
+        <h2>Komadi (SN)</h2>
+        <div class="tablebox"><table>
+          <thead><tr><th>Serijski broj</th><th>Status</th><th>Nalog</th><th>Primljeno</th><th></th></tr></thead>
+          <tbody id="komadi"></tbody>
+        </table></div>
+      </div>
+      <div>
+        <h2>Kartica artikla</h2>
+        <div class="tablebox"><table>
+          <thead><tr><th>Vrijeme</th><th>Promjena</th><th style="text-align:right">Količina</th><th style="text-align:right">Stanje</th><th>Nalog / SN</th><th>Dokument / napomena</th><th>Korisnik</th></tr></thead>
+          <tbody id="kartica"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card van" id="van-card">
+    <h2>Utrošeno van magacina</h2>
+    <p class="muted">Materijal upisan u nalog kojeg nema u magacinu (ili SN koji nije primljen). Povežite stavku s artiklom – tada se skida sa stanja –
+      ili je označite kao riješenu uz napomenu (npr. „dio donio klijent”).</p>
+    <div class="tablebox"><table>
+      <thead><tr><th>Nalog</th><th>Upisano u nalogu</th><th>Kol.</th><th>Poveži s artiklom</th><th>Ili označi riješeno</th></tr></thead>
+      <tbody id="van"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
+  </div>
+</main>
+<datalist id="dl-artikli"></datalist>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
+const fDT = s => s ? new Date(s + 'Z').toLocaleString('bs-BA') : '';
+const kol = v => v == null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
+const VRSTE = { prijem: 'Prijem', utrosak: 'Utrošak', povrat: 'Povrat iz naloga', korekcija: 'Korekcija', otpis: 'Otpis' };
+const STATUSI = { na_stanju: ['na stanju', 'ok'], utrosen: ['utrošen', ''], otpisan: ['otpisan', 'bad'] };
+let artikli = [], filter = '', otvoren = null;
+
+async function posalji(url, metod, tijelo) {
+  const r = await fetch(url, { method: metod, headers: { 'Content-Type': 'application/json' }, body: tijelo ? JSON.stringify(tijelo) : undefined });
+  const d = await r.json().catch(() => ({}));
+  return r.ok ? { ok: true, d } : { ok: false, greska: r.status === 403 ? 'Magacinom upravlja samo administrator.' : d.greska || 'Nije uspjelo.' };
+}
+const javi = (el, rez, okTekst = 'Sačuvano') => {
+  el.innerHTML = rez.ok ? `<span class="chip ok">${okTekst}</span>` : `<span class="greska">${esc(rez.greska)}</span>`;
+  if (rez.ok) setTimeout(() => el.innerHTML = '', 2500);
+};
+const klasaStanja = a => a.stanje < 0 ? 'minus' : a.minKolicina != null && a.stanje < a.minKolicina ? 'malo' : 'ok';
+
+// ---------- Sažetak i lista ----------
+async function ucitajSazetak() {
+  const s = await fetch('/api/magacin/sazetak').then(r => r.json());
+  $('#sazetak').innerHTML =
+    `<button data-f="minus" ${s.uMinusu ? 'style="border-color:var(--bad);color:var(--bad)"' : ''}>U minusu: <b>${s.uMinusu}</b></button>` +
+    `<button data-f="malo" ${s.ispodMinimuma ? 'style="border-color:var(--warn);color:var(--warn)"' : ''}>Ispod minimuma: <b>${s.ispodMinimuma}</b></button>` +
+    `<button data-van="1" ${s.vanMagacina ? 'style="border-color:var(--warn);color:var(--warn)"' : ''}>Van magacina za razriješiti: <b>${s.vanMagacina}</b></button>`;
+  document.querySelectorAll('#sazetak [data-f]').forEach(b => b.onclick = () => postaviFilter(b.dataset.f));
+  $('#sazetak [data-van]').onclick = () => $('#van-card').scrollIntoView({ behavior: 'smooth' });
+}
+async function ucitajArtikle() {
+  artikli = await fetch('/api/magacin/artikli?sve=true').then(r => r.json());
+  $('#dl-artikli').innerHTML = artikli.filter(a => a.aktivan).map(a => `<option value="${esc(a.naziv)}">${esc([a.pn, a.vodiSeSN ? 'po SN' : 'stanje ' + kol(a.stanje)].filter(Boolean).join(' · '))}</option>`).join('');
+  prikaziArtikle();
+}
+function postaviFilter(f) {
+  filter = f;
+  document.querySelectorAll('#filteri button').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === f));
+  prikaziArtikle();
+}
+function prikaziArtikle() {
+  const q = $('#trazi').value.trim().toLowerCase();
+  const lista = artikli.filter(a =>
+    (filter === 'neaktivni' ? !a.aktivan : a.aktivan) &&
+    (filter !== 'minus' || a.stanje < 0) &&
+    (filter !== 'malo' || (a.minKolicina != null && a.stanje >= 0 && a.stanje < a.minKolicina)) &&
+    (!q || a.naziv.toLowerCase().includes(q) || (a.pn || '').toLowerCase().includes(q)));
+  $('#artikli').innerHTML = lista.length ? lista.map(a => `<tr class="klik" data-id="${a.id}">
+      <td><b>${esc(a.naziv)}</b></td><td class="mono">${esc(a.pn || '')}</td>
+      <td class="sitno">${a.vodiSeSN ? 'po SN' : 'po količini'}</td>
+      <td style="text-align:right"><span class="stanje ${klasaStanja(a)}">${kol(a.stanje)}</span></td>
+      <td class="mono sitno">${a.minKolicina != null ? kol(a.minKolicina) : ''}</td></tr>`).join('')
+    : `<tr><td colspan="5" class="muted">${artikli.length ? 'Nema artikala za ovaj filter.' : 'Magacin je prazan. Dodajte prvi artikal dugmetom „+ Novi artikal”.'}</td></tr>`;
+  document.querySelectorAll('#artikli tr[data-id]').forEach(tr => tr.onclick = () => otvori(artikli.find(a => a.id == tr.dataset.id)));
+}
+
+// ---------- Detalj artikla ----------
+async function otvori(a) {
+  otvoren = a || null;
+  $('#d-naslov').textContent = a ? a.naziv : 'Novi artikal';
+  $('#a-naziv').value = a?.naziv || ''; $('#a-pn').value = a?.pn || '';
+  $('#a-sn').value = a?.vodiSeSN ? '1' : '0'; $('#a-min').value = a?.minKolicina ?? '';
+  $('#a-aktivan').checked = a ? a.aktivan : true;
+  $('#a-del').hidden = !a; $('#a-del').textContent = 'Obriši artikal'; delete $('#a-del').dataset.potvrda;
+  ['#a-poruka', '#p-poruka', '#k-poruka'].forEach(s => $(s).textContent = '');
+  $('#d-rad').hidden = !a;
+  $('#detalj').hidden = false;
+  if (a) await osvjeziDetalj();
+  $('#detalj').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!a) $('#a-naziv').focus();
+}
+async function osvjeziDetalj() {
+  const a = otvoren;
+  $('#d-stanje').className = 'stanje ' + klasaStanja(a);
+  $('#d-stanje').textContent = kol(a.stanje);
+  $('#p-kol-w').hidden = a.vodiSeSN; $('#p-sn-w').hidden = !a.vodiSeSN;
+  $('#k-dio').hidden = a.vodiSeSN; $('#komadi-dio').hidden = !a.vodiSeSN;
+  $('#k-novo').value = a.stanje;
+  if (a.vodiSeSN) {
+    const komadi = await fetch(`/api/magacin/artikli/${a.id}/komadi`).then(r => r.json());
+    $('#komadi').innerHTML = komadi.length ? komadi.map(k => `<tr data-k="${k.id}">
+        <td class="mono">${esc(k.serijskiBroj)}</td>
+        <td><span class="chip ${STATUSI[k.status][1]}" style="${STATUSI[k.status][1] ? '' : 'background:var(--sunk)'}">${STATUSI[k.status][0]}</span></td>
+        <td>${k.nalogId ? `<a href="nalog.html?id=${k.nalogId}">${esc(k.nalogBroj)}</a>` : ''}</td>
+        <td class="sitno">${fD(k.primljeno)}</td>
+        <td>${k.status === 'na_stanju' ? '<input class="o-raz" placeholder="razlog otpisa" style="max-width:180px"> <button class="o-btn">Otpiši</button>' : ''}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="muted">Nema komada. Primite ih u magacin (prijem robe).</td></tr>';
+    document.querySelectorAll('#komadi tr[data-k] .o-btn').forEach(b => b.onclick = async () => {
+      const tr = b.closest('tr');
+      const rez = await posalji(`/api/magacin/komadi/${tr.dataset.k}/otpis`, 'POST', { napomena: tr.querySelector('.o-raz').value });
+      if (rez.ok) await nakonPromjene(); else alertUnutra(tr, rez.greska);
+    });
+  }
+  const kartica = await fetch(`/api/magacin/artikli/${a.id}/kartica`).then(r => r.json());
+  $('#kartica').innerHTML = kartica.length ? kartica.map(p => `<tr>
+      <td class="sitno">${fDT(p.vrijeme)}</td><td>${VRSTE[p.vrsta] || p.vrsta}</td>
+      <td style="text-align:right" class="mono ${p.kolicina > 0 ? 'plus' : 'minusk'}">${p.kolicina > 0 ? '+' : ''}${kol(p.kolicina)}</td>
+      <td style="text-align:right" class="mono">${kol(p.stanjePoslije)}</td>
+      <td class="sitno">${p.nalogBroj ? (p.nalogId ? `<a href="nalog.html?id=${p.nalogId}">${esc(p.nalogBroj)}</a>` : esc(p.nalogBroj)) : ''}${p.serijskiBroj ? `<div class="mono">${esc(p.serijskiBroj)}</div>` : ''}</td>
+      <td class="sitno">${esc([p.dokument, p.napomena].filter(Boolean).join(' · '))}</td>
+      <td class="sitno">${esc(p.korisnik || '')}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="muted">Još nema kretanja.</td></tr>';
+}
+function alertUnutra(tr, tekst) {
+  let el = tr.querySelector('.greska'); if (!el) { el = document.createElement('div'); el.className = 'greska'; tr.lastElementChild.appendChild(el); }
+  el.textContent = tekst;
+}
+async function nakonPromjene() {
+  await ucitajArtikle();
+  if (otvoren) { otvoren = artikli.find(a => a.id === otvoren.id); await osvjeziDetalj(); }
+  ucitajSazetak();
+}
+
+$('#novi').onclick = () => otvori(null);
+$('#d-zatvori').onclick = () => { $('#detalj').hidden = true; otvoren = null; };
+$('#trazi').oninput = prikaziArtikle;
+document.querySelectorAll('#filteri button').forEach(b => b.onclick = () => postaviFilter(b.dataset.f));
+
+$('#a-sac').onclick = async () => {
+  const tijelo = { naziv: $('#a-naziv').value, pn: $('#a-pn').value, vodiSeSN: $('#a-sn').value === '1',
+    minKolicina: $('#a-min').value === '' ? null : parseFloat($('#a-min').value), aktivan: $('#a-aktivan').checked };
+  const rez = otvoren ? await posalji(`/api/magacin/artikli/${otvoren.id}`, 'PUT', tijelo) : await posalji('/api/magacin/artikli', 'POST', tijelo);
+  javi($('#a-poruka'), rez);
+  if (!rez.ok) return;
+  const id = otvoren ? otvoren.id : rez.d.id;
+  await ucitajArtikle();
+  await otvori(artikli.find(a => a.id === id));
+  ucitajSazetak();
+};
+$('#a-del').onclick = async () => {
+  const b = $('#a-del');
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno obrisati?'; return; }
+  const rez = await posalji(`/api/magacin/artikli/${otvoren.id}`, 'DELETE');
+  if (rez.ok) { $('#detalj').hidden = true; otvoren = null; await ucitajArtikle(); ucitajSazetak(); } else javi($('#a-poruka'), rez);
+};
+$('#p-btn').onclick = async () => {
+  const tijelo = { dokument: $('#p-dok').value, napomena: $('#p-nap').value };
+  if (otvoren.vodiSeSN) tijelo.serijskiBrojevi = $('#p-sn').value.split('\n').map(s => s.trim()).filter(Boolean);
+  else tijelo.kolicina = parseFloat(String($('#p-kol').value).replace(',', '.')) || 0;
+  const rez = await posalji(`/api/magacin/artikli/${otvoren.id}/prijem`, 'POST', tijelo);
+  javi($('#p-poruka'), rez, 'Primljeno');
+  if (rez.ok) { $('#p-kol').value = ''; $('#p-sn').value = ''; $('#p-dok').value = ''; $('#p-nap').value = ''; await nakonPromjene(); }
+};
+$('#k-btn').onclick = async () => {
+  const rez = await posalji(`/api/magacin/artikli/${otvoren.id}/korekcija`, 'POST',
+    { novoStanje: parseFloat(String($('#k-novo').value).replace(',', '.')), napomena: $('#k-razlog').value });
+  javi($('#k-poruka'), rez, 'Stanje ispravljeno');
+  if (rez.ok) { $('#k-razlog').value = ''; await nakonPromjene(); }
+};
+
+// ---------- Utrošeno van magacina ----------
+async function ucitajVan() {
+  const lista = await fetch('/api/magacin/van-magacina').then(r => r.json());
+  $('#van').innerHTML = lista.length ? lista.map(s => `<tr data-id="${s.id}">
+      <td><a href="nalog.html?id=${s.nalogId}" class="mono">${esc(s.nalogBroj)}</a><div class="sitno">${fD(s.datumIzdavanja)} · ${esc(s.klijentNaziv)}</div></td>
+      <td><b>${esc(s.naziv)}</b><div class="sitno mono">${esc([s.pn && 'PN ' + s.pn, s.serijskiBroj && 'SN ' + s.serijskiBroj].filter(Boolean).join(' · '))}</div></td>
+      <td class="mono">${kol(s.kolicina)}</td>
+      <td><input class="v-art" list="dl-artikli" placeholder="artikal" value="${esc(artikli.find(a => a.id === s.materijalId)?.naziv || '')}">
+          <input class="v-sn mono" placeholder="SN (ako se vodi po SN)" value="${esc(s.serijskiBroj || '')}" style="margin-top:4px">
+          <button class="v-pov" style="margin-top:4px">Poveži</button></td>
+      <td><input class="v-nap" placeholder="npr. dio donio klijent"><button class="v-rij" style="margin-top:4px">Riješeno</button></td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted">Nema stavki za razriješiti.</td></tr>';
+  document.querySelectorAll('#van tr[data-id]').forEach(tr => {
+    tr.querySelector('.v-pov').onclick = async () => {
+      const a = artikli.find(x => x.naziv.toLowerCase() === tr.querySelector('.v-art').value.trim().toLowerCase());
+      if (!a) { alertUnutra(tr, 'Izaberite artikal sa liste.'); return; }
+      const rez = await posalji(`/api/magacin/van-magacina/${tr.dataset.id}/povezi`, 'POST', { materijalId: a.id, serijskiBroj: tr.querySelector('.v-sn').value });
+      if (rez.ok) { await ucitajVan(); await nakonPromjene(); if (rez.d.upozorenje) $('#sazetak').insertAdjacentHTML('afterend', `<p class="greska">${esc(rez.d.upozorenje)}</p>`); }
+      else alertUnutra(tr, rez.greska);
+    };
+    tr.querySelector('.v-rij').onclick = async () => {
+      const rez = await posalji(`/api/magacin/van-magacina/${tr.dataset.id}/rijeseno`, 'POST', { napomena: tr.querySelector('.v-nap').value });
+      if (rez.ok) { await ucitajVan(); ucitajSazetak(); } else alertUnutra(tr, rez.greska);
+    };
+  });
+}
+
+(async () => {
+  const ja = await ucitajZaglavlje('magacin');
+  if (!ja.registrovan) return;
+  if (ja.uloga !== 'administrator') {
+    document.querySelector('main').innerHTML = '<div class="card"><h1>Magacin</h1><p>Magacinom upravlja administrator.</p></div>';
+    return;
+  }
+  await ucitajArtikle();
+  ucitajSazetak();
+  ucitajVan();
+})();
+</script>
+</body>
+</html>

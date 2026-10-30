@@ -123,10 +123,11 @@ public static class PdfNaloga
         blokovi.Add(Red(dole, L(0, 1, "Opis izvršene intervencije:"), T(1, 7, n.OpisIntervencije, minH: 104)));
 
         // Utrošeni materijal
-        var mat = n.Materijal.Select(m => new List<Celija> { T(1, 4, m.Naziv), T(5, 1, Kol(m.Kolicina), centar: true), T(6, 2, m.BrojOtpremnice) }).ToList();
-        while (mat.Count < 5) mat.Add(new List<Celija> { T(1, 4, ""), T(5, 1, ""), T(6, 2, "") });
+        var mat = n.Materijal.Select(m => new List<Celija> { T(1, 2, m.Naziv), T(3, 1, m.PN), T(4, 1, m.SerijskiBroj), T(5, 1, Kol(m.Kolicina), centar: true), T(6, 2, m.BrojOtpremnice) }).ToList();
+        while (mat.Count < 5) mat.Add(new List<Celija> { T(1, 2, ""), T(3, 1, ""), T(4, 1, ""), T(5, 1, ""), T(6, 2, "") });
         blokovi.Add(new(dole, [L(0, 1, "Utrošeno:")],
-            [[L(1, 4, "Utrošeni materijal", centar: true), L(5, 1, "Količina", centar: true), L(6, 2, "Broj otpremnice", centar: true)], .. mat]));
+            [[L(1, 2, "Utrošeni materijal", centar: true), L(3, 1, "PN", centar: true), L(4, 1, "SN", centar: true),
+              L(5, 1, "Količina", centar: true), L(6, 2, "Broj otpremnice", centar: true)], .. mat]));
 
         // Putni troškovi
         var kmUk = (n.KmTamo ?? 0) + (n.KmNazad ?? 0);

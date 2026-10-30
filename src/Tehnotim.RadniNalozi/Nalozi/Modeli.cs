@@ -55,6 +55,10 @@ public class NalogUredjajUnos
 
 public class NalogMaterijalUnos
 {
+    public int? MaterijalId { get; set; }     // artikal iz magacina (null = upisano slobodno)
+    public int? KomadId { get; set; }         // komad po SN iz magacina
+    public string? PN { get; set; }
+    public string? SerijskiBroj { get; set; }
     public string? Naziv { get; set; }
     public decimal? Kolicina { get; set; }
     public string? BrojOtpremnice { get; set; }
@@ -122,6 +126,11 @@ public class NalogUredjajDetalji
 
 public class NalogMaterijalDetalji
 {
+    public int? MaterijalId { get; set; }
+    public int? KomadId { get; set; }
+    public bool VodiSeSN { get; set; }
+    public string? PN { get; set; }
+    public string? SerijskiBroj { get; set; }
     public string Naziv { get; set; } = "";
     public decimal? Kolicina { get; set; }
     public string? BrojOtpremnice { get; set; }

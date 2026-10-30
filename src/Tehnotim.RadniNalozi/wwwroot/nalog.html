@@ -32,7 +32,10 @@
   .yn h2{min-width:9.5em;margin:0}
   .rows{display:grid;gap:8px}
   .row-d{display:grid;gap:8px;align-items:start;grid-template-columns:1.2fr 1.2fr 1fr 1fr auto}
-  .row-m{display:grid;gap:8px;align-items:start;grid-template-columns:2fr 90px 1fr auto}
+  .row-m{display:grid;gap:8px;align-items:start;grid-template-columns:2fr 1fr 1fr 70px 1fr auto}
+  .row-m .hint{grid-column:1/-1;margin-top:-4px}
+  .hint.bad{color:var(--bad)}
+  .upoz{margin:6px 0 0;padding-left:18px;color:var(--warn);font-size:14px}
   @media (max-width:560px){.row-d,.row-m{grid-template-columns:1fr 1fr}.x{grid-column:span 2;justify-self:end}}
   .devcard{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px}
   .cnt{display:grid;gap:10px;padding:12px;background:var(--sunk);border-radius:6px}
@@ -130,7 +133,7 @@ function buildForm() {
   <div class="sec"><div class="lab">Opis izvršene intervencije</div><div class="body"><textarea id="f-opisi" rows="6"></textarea></div></div>
 
   <div class="sec"><div class="lab">Utrošeno</div><div class="body">
-    <div class="row-m muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:600"><span>Utrošeni materijal</span><span>Količina</span><span>Broj otpremnice</span><span></span></div>
+    <div class="row-m muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:600"><span>Utrošeni materijal</span><span>PN</span><span>SN</span><span>Kol.</span><span>Broj otpremnice</span><span></span></div>
     <div class="rows" id="mat-rows"></div>
     <div><button class="ghost" id="add-mat">+ Dodaj stavku</button></div>
   </div></div>
@@ -350,20 +353,55 @@ function collectDevs() {
   });
 }
 
-// ---------- Materijal ----------
+// ---------- Materijal (iz magacina) ----------
+const artikalPoNazivu = n => S.materijal.find(a => a.naziv.toLowerCase() === (n || '').trim().toLowerCase());
+const kolTxt = v => String(Math.round((v ?? 0) * 100) / 100).replace('.', ',');
 function renderMatRows(list) {
   $('#mat-rows').innerHTML = list.map((m, i) => `<div class="row-m" data-i="${i}">
     <input class="m-n" list="dl-materijal" aria-label="Materijal" value="${esc(m.naziv || '')}">
+    <input class="m-pn mono" aria-label="PN" value="${esc(m.pn || '')}">
+    <input class="m-sn mono" list="dl-sn-${i}" aria-label="Serijski broj" value="${esc(m.serijskiBroj || '')}"><datalist id="dl-sn-${i}"></datalist>
     <input class="m-k" inputmode="decimal" aria-label="Količina" value="${m.kolicina ?? ''}">
     <input class="m-o" aria-label="Broj otpremnice" value="${esc(m.brojOtpremnice || '')}">
-    <button class="ghost x" title="Ukloni">✕</button></div>`).join('');
-  $$('#mat-rows .row-m').forEach(r => r.querySelector('.x').onclick = () => { const m = collectMats(); m.splice(+r.dataset.i, 1); renderMatRows(m.length ? m : [{}]); });
+    <button class="ghost x" title="Ukloni">✕</button>
+    <div class="hint m-h"></div></div>`).join('');
+  $$('#mat-rows .row-m').forEach(r => {
+    r.querySelector('.x').onclick = () => { const m = collectMats(); m.splice(+r.dataset.i, 1); renderMatRows(m.length ? m : [{}]); };
+    r.querySelector('.m-n').addEventListener('change', () => osvjeziRedMat(r, true));
+    r.querySelector('.m-n').addEventListener('input', () => osvjeziRedMat(r, false));
+    osvjeziRedMat(r, false);
+  });
 }
-const collectMats = () => $$('#mat-rows .row-m').map(r => ({
-  naziv: r.querySelector('.m-n').value.trim(),
-  kolicina: r.querySelector('.m-k').value.trim() === '' ? null : num(r.querySelector('.m-k').value),
-  brojOtpremnice: r.querySelector('.m-o').value.trim()
-}));
+// Pokazuje stanje u magacinu i nudi slobodne serijske brojeve za artikle koji se vode po SN
+async function osvjeziRedMat(r, popuniPN) {
+  const naziv = r.querySelector('.m-n').value.trim(), h = r.querySelector('.m-h');
+  const a = artikalPoNazivu(naziv);
+  h.className = 'hint m-h';
+  if (!naziv) { h.textContent = ''; return; }
+  if (!a) { h.className = 'hint m-h new'; h.textContent = 'Nije u magacinu – sačuvaće se i evidentirati posebno („utrošeno van magacina”).'; return; }
+  if (popuniPN && a.pn) r.querySelector('.m-pn').value = a.pn;
+  if (!a.vodiSeSN) {
+    h.className = 'hint m-h ' + (a.stanje > 0 ? 'ok' : 'bad');
+    h.textContent = `Na stanju: ${kolTxt(a.stanje)}` + (a.stanje > 0 ? '' : ' – nalog se može sačuvati, ali stanje ide u minus.');
+    return;
+  }
+  if (popuniPN && !r.querySelector('.m-k').value) r.querySelector('.m-k').value = '1';
+  const komadi = await fetch(`/api/magacin/artikli/${a.id}/komadi?status=na_stanju`).then(x => x.json()).catch(() => []);
+  r.querySelector('datalist').innerHTML = komadi.map(k => `<option value="${esc(k.serijskiBroj)}">`).join('');
+  h.className = 'hint m-h ' + (komadi.length ? 'ok' : 'bad');
+  h.textContent = `Vodi se po SN – upišite ili izaberite serijski broj (slobodnih komada: ${komadi.length}). Jedan red = jedan komad.`;
+}
+const collectMats = () => $$('#mat-rows .row-m').map(r => {
+  const naziv = r.querySelector('.m-n').value.trim(), a = artikalPoNazivu(naziv);
+  return {
+    materijalId: a ? a.id : null,
+    naziv,
+    pn: r.querySelector('.m-pn').value.trim() || null,
+    serijskiBroj: r.querySelector('.m-sn').value.trim() || null,
+    kolicina: r.querySelector('.m-k').value.trim() === '' ? null : num(r.querySelector('.m-k').value),
+    brojOtpremnice: r.querySelector('.m-o').value.trim()
+  };
+});
 
 // ---------- Računanje ----------
 function calcTime() {
@@ -456,11 +494,12 @@ async function save() {
     if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || (d.errors ? 'Neispravan unos: ' + Object.keys(d.errors).join(', ') : 'Nije sačuvano.'))}</span>`; return; }
     nalogId = String(d.id);
     history.replaceState(null, '', `nalog.html?id=${d.id}`);
-    await ucitajNalog();
-    $('#save-state').innerHTML = `<span class="chip ok">Nalog ${esc(d.broj)} je sačuvan</span>`;
-    // Svježi šifarnici (novi model, materijal, jedinica)
-    [S.modeli, S.materijal] = await Promise.all([fetch('/api/uredjaji/modeli').then(x => x.json()), fetch('/api/materijal').then(x => x.json())]);
+    // Svježi šifarnici (novi model, stanje magacina, jedinica)
+    [S.modeli, S.materijal] = await Promise.all([fetch('/api/uredjaji/modeli').then(x => x.json()), fetch('/api/magacin/artikli').then(x => x.json())]);
     popuniListe();
+    await ucitajNalog();
+    $('#save-state').innerHTML = `<span class="chip ok">Nalog ${esc(d.broj)} je sačuvan</span>` +
+      ((d.upozorenja || []).length ? `<ul class="upoz">${d.upozorenja.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : '');
     return true;
   } finally { const bb = $('#save'); if (bb) bb.disabled = false; }
 }
@@ -520,7 +559,7 @@ async function ucitajNalog() {
 function popuniListe() {
   $('#dl-klijenti').innerHTML = S.klijenti.map(k => `<option value="${esc(k.naziv)}">`).join('');
   $('#dl-modeli').innerHTML = S.modeli.map(m => `<option value="${esc(m.model)}">`).join('');
-  $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">`).join('');
+  $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">${esc([m.pn, m.vodiSeSN ? 'po SN' : 'na stanju ' + kolTxt(m.stanje)].filter(Boolean).join(' · '))}</option>`).join('');
 }
 
 ['input', 'change'].forEach(ev => $('#main').addEventListener(ev, () => { izmjene = true; }));
@@ -534,7 +573,7 @@ $('#main').addEventListener('click', e => {
   window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : 'novi');
   if (!ja.registrovan) return;
   [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke] = await Promise.all(
-    ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/materijal', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));
+    ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/magacin/artikli', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));
   popuniListe();
   await ucitajNalog();
 })();

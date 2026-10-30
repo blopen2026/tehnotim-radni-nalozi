@@ -11,13 +11,6 @@ public class TipUredjaja
     public bool PratiBrojac { get; set; }
 }
 
-public class Materijal
-{
-    public int Id { get; set; }
-    public string Naziv { get; set; } = "";
-    public string? Sifra { get; set; }
-}
-
 public class Postavke
 {
     public decimal TarifaKm { get; set; }
@@ -40,8 +33,8 @@ public class Nosilac
 public record NumeracijaUnos(int Sljedeci);
 
 /// <summary>
-/// API za šifarnike: tipovi uređaja, materijal, postavke firme, numeracija naloga, nosioci naloga.
-/// Čitanje: svaki korisnik. Tipovi i materijal: kancelarija. Postavke i numeracija: administrator.
+/// API za šifarnike: tipovi uređaja, postavke firme, numeracija naloga, nosioci naloga (materijal je u Magacinu).
+/// Čitanje: svaki korisnik. Tipovi: kancelarija. Postavke i numeracija: administrator.
 /// </summary>
 public static class SifarniciApi
 {
@@ -81,40 +74,6 @@ public static class SifarniciApi
         {
             await using var c = Veza();
             return await Izvrsi(async () => await c.ExecuteAsync("DELETE FROM dbo.TipUredjaja WHERE Id = @id", new { id }));
-        }).RequireAuthorization(Politike.Kancelarija);
-
-        // ---------- Materijal ----------
-        var materijal = app.MapGroup("/api/materijal").RequireAuthorization(Politike.Korisnik);
-
-        materijal.MapGet("", async () =>
-        {
-            await using var c = Veza();
-            return Results.Ok(await c.QueryAsync<Materijal>(
-                "SELECT Id, Naziv, Sifra FROM dbo.Materijal ORDER BY Naziv"));
-        });
-
-        materijal.MapPost("", async (Materijal m) =>
-        {
-            if (string.IsNullOrWhiteSpace(m.Naziv)) return Greska("Upišite naziv materijala.");
-            await using var c = Veza();
-            return await Izvrsi(async () => await c.ExecuteAsync(
-                "INSERT INTO dbo.Materijal (Naziv, Sifra) VALUES (@Naziv, @Sifra)",
-                new { Naziv = m.Naziv.Trim(), Sifra = Prazno(m.Sifra) }));
-        }).RequireAuthorization(Politike.Kancelarija);
-
-        materijal.MapPut("/{id:int}", async (int id, Materijal m) =>
-        {
-            if (string.IsNullOrWhiteSpace(m.Naziv)) return Greska("Upišite naziv materijala.");
-            await using var c = Veza();
-            return await Izvrsi(async () => await c.ExecuteAsync(
-                "UPDATE dbo.Materijal SET Naziv = @Naziv, Sifra = @Sifra WHERE Id = @id",
-                new { id, Naziv = m.Naziv.Trim(), Sifra = Prazno(m.Sifra) }));
-        }).RequireAuthorization(Politike.Kancelarija);
-
-        materijal.MapDelete("/{id:int}", async (int id) =>
-        {
-            await using var c = Veza();
-            return await Izvrsi(async () => await c.ExecuteAsync("DELETE FROM dbo.Materijal WHERE Id = @id", new { id }));
         }).RequireAuthorization(Politike.Kancelarija);
 
         // ---------- Postavke firme i tarifa ----------

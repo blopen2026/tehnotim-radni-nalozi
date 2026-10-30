@@ -11,7 +11,10 @@ async function ucitajZaglavlje(aktivna) {
     meni.push(['uredjaji', '/uredjaji.html', 'Uređaji']);
     meni.push(['sifarnici', '/sifarnici.html', 'Šifarnici']);
   }
-  if (ja.uloga === 'administrator') meni.push(['korisnici', '/korisnici.html', 'Korisnici']);
+  if (ja.uloga === 'administrator') {
+    meni.push(['magacin', '/magacin.html', 'Magacin']);
+    meni.push(['korisnici', '/korisnici.html', 'Korisnici']);
+  }
 
   const h = document.createElement('header');
   h.innerHTML = `<a class="brand" href="/"><span class="logochip"><img src="/img/logo.png" alt="Tehnotim"></span><small>Radni nalozi</small></a>

@@ -40,13 +40,7 @@
 
   <div class="card">
     <h2>Materijal i dijelovi</h2>
-    <div class="lista" id="materijal"></div>
-    <div class="dodaj" id="mat-dodaj">
-      <input id="mat-naziv" placeholder="Naziv, npr. Toner TK-5240K">
-      <input id="mat-sifra" placeholder="Šifra (nije obavezna)">
-      <button id="mat-btn">Dodaj</button>
-    </div>
-    <div id="mat-poruka"></div>
+    <p class="muted" style="margin:0">Materijal i rezervni dijelovi vode se u <b>Magacinu</b> (stanje, PN, SN, prijem robe). Magacinom upravlja administrator.</p>
   </div>
 
   <div class="card">
@@ -119,32 +113,6 @@ $('#tip-btn').onclick = async () => {
   }
 };
 
-// ---------- Materijal ----------
-async function ucitajMaterijal() {
-  const lista = await fetch('/api/materijal').then(r => r.json());
-  $('#materijal').innerHTML = lista.length ? lista.map(m => `<div class="stavka" data-id="${m.id}">
-      <input class="m-naziv" value="${esc(m.naziv)}" aria-label="Naziv">
-      <input class="m-sifra" value="${esc(m.sifra || '')}" aria-label="Šifra" placeholder="Šifra">
-      <button class="m-sac">Sačuvaj</button><button class="m-del">Obriši</button></div>`).join('')
-    : '<p class="muted">Lista je prazna. Materijal upisan u nalog dodaće se ovdje sam.</p>';
-  document.querySelectorAll('#materijal .stavka').forEach(red => {
-    const id = red.dataset.id;
-    red.querySelector('.m-sac').onclick = async () => {
-      if (await posalji(`/api/materijal/${id}`, 'PUT', { naziv: red.querySelector('.m-naziv').value, sifra: red.querySelector('.m-sifra').value }, $('#mat-poruka'))) ucitajMaterijal();
-    };
-    const del = red.querySelector('.m-del');
-    del.onclick = async () => {
-      if (!del.dataset.potvrda) { del.dataset.potvrda = 1; del.textContent = 'Sigurno?'; return; }
-      if (await posalji(`/api/materijal/${id}`, 'DELETE', null, $('#mat-poruka'))) ucitajMaterijal();
-    };
-  });
-}
-$('#mat-btn').onclick = async () => {
-  if (await posalji('/api/materijal', 'POST', { naziv: $('#mat-naziv').value, sifra: $('#mat-sifra').value }, $('#mat-poruka'))) {
-    $('#mat-naziv').value = ''; $('#mat-sifra').value = ''; ucitajMaterijal();
-  }
-};
-
 // ---------- Nosioci ----------
 async function ucitajNosioce() {
   const lista = await fetch('/api/nosioci').then(r => r.json());
@@ -181,7 +149,7 @@ $('#post-btn').onclick = async () => {
   const ja = await ucitajZaglavlje('sifarnici');
   if (!ja.registrovan) return;
   jeAdmin = ja.uloga === 'administrator';
-  ucitajTipove(); ucitajMaterijal(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
+  ucitajTipove(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
 })();
 </script>
 </body>

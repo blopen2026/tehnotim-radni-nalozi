@@ -2,6 +2,15 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Magacin rezervnih dijelova
+
+- Magacin se vodi samo količinski (bez finansija), jedan magacin, upravlja samo administrator.
+- Artikal ima naziv, PN i stanje; vodi se po količini ili po serijskom broju (SN – svaki komad zaseban).
+- Stanje se skida pri svakom čuvanju naloga; knjiži se samo razlika između starog i novog stanja naloga. Brisanje naloga vraća materijal.
+- Stanje može ići u minus, ali se korisniku prijavljuje upozorenje.
+- Materijal kojeg nema u magacinu može se upisati u nalog; evidentira se posebno („Utrošeno van magacina”) dok ga administrator ne poveže s artikalom ili označi riješenim.
+- Svako kretanje se upisuje u karticu artikla (MagacinPromjena).
+
 ## 2026-10-30 – PDF
 
 - PDF pravi server (PDFsharp 6.1, MIT licenca), font Arial iz Windows foldera s fontovima (server mora imati Arial – standardno ima).
