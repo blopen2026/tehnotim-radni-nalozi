@@ -39,3 +39,37 @@ Magacin se vodi **samo količinski** (bez cijena). Jedan magacin. Upravlja samo 
 10. Kao serviser: meni nema Magacin, ali u nalogu se vidi stanje i nude se SN.
 
 Javite šta ne radi (poruku greške iz prozora gdje radi `pokreni.cmd`).
+
+## Tehnički opis (za buduće izmjene)
+
+### Baza – skripta `Baza/Skripte/005_magacin.sql`
+
+| Tabela | Šta čuva |
+|---|---|
+| `Materijal` (proširena) | artikal: `Naziv`, `PN`, `VodiSeSN` (0 = po količini, 1 = po SN), `Stanje`, `MinKolicina`, `Aktivan` |
+| `MagacinKomad` (nova) | jedan komad artikla po SN: `SerijskiBroj`, `Status` (`na_stanju` / `utrosen` / `otpisan`), `NalogId` u kojem je utrošen; SN je jedinstven unutar artikla |
+| `MagacinPromjena` (nova) | kartica artikla: svako kretanje, `Vrsta` (`prijem` / `utrosak` / `povrat` / `korekcija` / `otpis`), `Kolicina` (+ ulaz, − izlaz), `StanjePoslije`, nalog (Id i broj – broj ostaje i kad se nalog obriše), SN, dokument, napomena, korisnik |
+| `NalogMaterijal` (proširena) | stavka naloga: `MaterijalId` (NULL = van magacina), `KomadId`, `PN`, `SerijskiBroj`, `VanMagacinaRijeseno`, `VanMagacinaNapomena` |
+
+Stanje u `Materijal.Stanje` se mijenja samo kroz `Knjizenje.PromijeniStanjeAsync`, koja uvijek upiše i red u `MagacinPromjena` – kartica i stanje se uvijek slažu.
+
+### Kod
+
+- `Magacin/Knjizenje.cs` – sva logika knjiženja iz naloga:
+  - `StareStavkeAsync` – stavke naloga prije izmjene;
+  - `PripremiAsync` – povezuje unesene redove s artiklom (po `MaterijalId` ili tačnom nazivu) i komadom (po SN). Greška (nalog se ne čuva) samo ako: artikal po SN nema upisan SN, SN je utrošen u drugom nalogu ili otpisan, isti SN je dvaput u nalogu, količina negativna. SN koji nije u magacinu → stavka van magacina;
+  - `KnjiziAsync` – poredi staro i novo i knjiži **samo razliku** (količinski po artiklu; po SN komadi koji su izašli se vraćaju, novi se troše). Vraća upozorenja (minus, van magacina);
+  - sve radi u istoj transakciji kao čuvanje naloga – ako nalog ne uspije, ni magacin se ne mijenja.
+- `Magacin/MagacinApi.cs` – API `/api/magacin/...`:
+  - `GET artikli` (svi prijavljeni – serviseri vide stanje u nalogu), `GET artikli/{id}/komadi`;
+  - samo administrator: dodavanje/izmjena/brisanje artikla (vrsta SN/količina se mijenja i artikal briše samo dok nema kretanja), `prijem`, `korekcija`, `komadi/{id}/otpis`, `kartica`, `van-magacina` (+ `povezi`, `rijeseno`), `sazetak`.
+- `Nalozi/NaloziApi.cs` – čuvanje naloga poziva `PripremiAsync` + `KnjiziAsync` i vraća `upozorenja`; brisanje naloga vraća sav materijal (`KnjiziAsync(stare, prazno)`).
+- `wwwroot/magacin.html` – stranica magacina; `wwwroot/nalog.html` – redovi materijala (dio „Materijal (iz magacina)”), prikaz upozorenja nakon čuvanja; `wwwroot/zaglavlje.js` – meni Magacin za administratora.
+- `Pdf/PdfNaloga.cs` – tabela utrošenog materijala: Materijal (kol. 1–2), PN, SN, Količina, Broj otpremnice.
+- Uklonjeno: stari `/api/materijal` iz `Sifarnici/SifarniciApi.cs` i kartica Materijal sa stranice Šifarnici.
+
+### Ideje za kasnije (nije urađeno)
+
+- Više magacina (npr. po serviseru / vozilu) – trebalo bi dodati tabelu `Magacin` i `MagacinId` u stanje i kretanja.
+- Na stranici uređaja prikaz dijelova ugrađenih u taj uređaj.
+- Izvoz stanja magacina u Excel.

@@ -10,6 +10,7 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - Stanje može ići u minus, ali se korisniku prijavljuje upozorenje.
 - Materijal kojeg nema u magacinu može se upisati u nalog; evidentira se posebno („Utrošeno van magacina”) dok ga administrator ne poveže s artikalom ili označi riješenim.
 - Svako kretanje se upisuje u karticu artikla (MagacinPromjena).
+- Tehnički opis (tabele, fajlovi, logika knjiženja): `docs/korak-10b-magacin.md`, dio „Tehnički opis”.
 
 ## 2026-10-30 – PDF
 
