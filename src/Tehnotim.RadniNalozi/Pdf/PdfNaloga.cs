@@ -88,7 +88,7 @@ public static class PdfNaloga
                       L(5, 1, "Datum i vrijeme završetka rada:"), T(6, 2, DatV(n.ZavrsetakRada))),
             Red(gore, L(0, 1, "Korisnik:\nLokacija:"),
                       T(1, 4, n.KlijentNaziv + "\n" + string.Join(", ", new[] { n.Lokacija, n.Adresa }.Where(s => !string.IsNullOrWhiteSpace(s)))),
-                      L(5, 1, "Utrošeno vrijeme rada"), T(6, 2, n.UtrosenoVrijeme)),
+                      L(5, 1, "Utrošeno vrijeme rada"), T(6, 2, n.UtrosenoVrijeme, centar: true)),
             Red(gore, [L(0, 1, "Kontakt podaci:"), T(1, 4, n.Kontakt), L(5, 1, "Naplata:"), .. DaNe(n.Naplata)]),
             Red(gore, [L(0, 1, "Uređaj predao (datum i potpis):"), T(1, 4, n.UredjajPredao), L(5, 1, "Status ugovora:"), .. DaNe(n.Ugovor)]),
             Red(gore, [L(0, 1, "Nosilac naloga:"), T(1, 4, n.NosilacIme), L(5, 1, "Garancija:"), .. DaNe(n.Garancija)]),
