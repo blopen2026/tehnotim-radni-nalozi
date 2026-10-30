@@ -2,6 +2,14 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-30 – Test kopija ServiceDesk Plus
+
+- Za fazu 2 pravi se test kopija SDP na razvojnom laptopu; mora biti **build 15200** kao radni sistem (test instalacija je bila 15100 → nadograditi).
+- Razlog: u 15200 su promijenjeni **formati Request API-ja**, Request Life Cycle je zamijenjen Request Workflow-om,
+  a okidači za uvezene tiketove koriste događaj „Imported” umjesto „Created”.
+- Webhooks i custom triggers postoje u ovim verzijama → trenutno otvaranje naloga na novi tiket je vjerovatno moguće (provjeriti na 15200).
+- Poslije vraćanja backupa na test kopiju odmah isključiti odlazni mail, AD sinhronizaciju i zakazane zadatke.
+
 ## 2026-10-30 – Interni broj zahtjeva
 
 - U listama naloga ispod broja naloga prikazuje se **interni** broj zahtjeva (ID tiketa u ServiceDesk Plus) – to je veza s tiketing sistemom.
