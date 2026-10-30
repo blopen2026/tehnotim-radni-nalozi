@@ -207,7 +207,7 @@ public static class PdfNaloga
         var y = Margina;
         if (logo is not null)
         {
-            var img = XImage.FromStream(new MemoryStream(logo));
+            var img = XImage.FromStream(Tok(logo));
             var h = 34.0;
             var w = h * img.PixelWidth / img.PixelHeight;
             g.DrawImage(img, Margina, y, w, h);
@@ -280,6 +280,9 @@ public static class PdfNaloga
 
     private static readonly XPen Linija = new(XColors.Black, 0.6);
 
+    // PDFsharp čita sliku direktno iz bafera toka, pa bafer mora biti javno dostupan (publiclyVisible: true)
+    private static MemoryStream Tok(byte[] b) => new(b, 0, b.Length, writable: false, publiclyVisible: true);
+
     private static void CrtajCeliju(XGraphics g, double[] m, Celija c, double y, double h)
     {
         var x = Margina + m[c.Od];
@@ -290,7 +293,7 @@ public static class PdfNaloga
 
         if (c.Slika is { Length: > 0 })
         {
-            var img = XImage.FromStream(new MemoryStream(c.Slika));
+            var img = XImage.FromStream(Tok(c.Slika));
             var maxW = w - 2 * Pad; var maxH = h - 2 * Pad;
             var k = Math.Min(maxW / img.PixelWidth, maxH / img.PixelHeight);
             var iw = img.PixelWidth * k; var ih = img.PixelHeight * k;
