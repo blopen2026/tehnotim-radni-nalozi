@@ -17,7 +17,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 9. (2026-10-30) Potpisi na ekranu – uputstvo: `docs/korak-09-potpisi.md`
 - [x] 10. PDF prema prototipu i direktna štampa – uputstvo: `docs/korak-10-pdf-stampa.md` (2026-10-30)
 - [x] 10b. Magacin rezervnih dijelova – uputstvo: `docs/korak-10b-magacin.md` (2026-10-30)
-- [ ] 11. Prenos podataka iz probne verzije
+- [x] 11. Prenos podataka iz probne verzije – nije potreban: probna verzija je imala samo jednog klijenta (već uvezen iz Excela) i jedan probni nalog (2026-10-30)
 - [ ] 12. Instalacija na Windows server (IIS), HTTPS, rezervne kopije
 
 ## Faza 2 – Veza sa ServiceDesk Plus
