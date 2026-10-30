@@ -47,7 +47,11 @@ app.UseAuthorization();
 
 // Stranice iz wwwroot – poslije prijave, da ih vide samo prijavljeni
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// Preglednik uvijek provjeri ima li novija verzija stranice/stila/skripte (inače nakon izmjene ostane stari stil)
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache"
+});
 
 // Ko sam ja (svako prijavljen; neupisan korisnik dobija registrovan = false)
 app.MapGet("/api/ja", (ClaimsPrincipal u) =>
