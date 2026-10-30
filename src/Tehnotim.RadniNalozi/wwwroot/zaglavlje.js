@@ -17,13 +17,17 @@ async function ucitajZaglavlje(aktivna) {
   }
 
   const h = document.createElement('header');
-  h.innerHTML = `<div class="traka"><a class="brand" href="/" title="Početna"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"></a>
+  h.innerHTML = `<a class="brand" href="/" title="Početna"><img class="logo" src="/img/logo-svijetli.png" alt="Tehnotim"></a><div class="traka">
     <nav>${ja.registrovan ? meni.map(([k, url, t]) => `<a href="${url}" class="${k === aktivna ? 'akt' : ''}">${t}</a>`).join('') : ''}</nav>
     <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span></div>`;
   document.body.prepend(h);
-  // Traka menija iste širine kao sadržaj stranice ispod (stranice imaju različite širine)
+  // Logo ostaje uz lijevu ivicu ekrana, a meni je iste širine i poravnat sa sadržajem stranice ispod.
+  // Na uskom ekranu (nema mjesta za logo lijevo od menija) logo i meni idu jedno do drugog.
   const m = document.querySelector('main');
-  if (m) h.querySelector('.traka').style.maxWidth = getComputedStyle(m).maxWidth;
+  const sirina = m ? parseFloat(getComputedStyle(m).maxWidth) || 900 : 900;
+  h.style.setProperty('--sirina', sirina + 'px');
+  const prilagodi = () => h.classList.toggle('usko', window.innerWidth < sirina + 2 * 190);
+  prilagodi(); window.addEventListener('resize', prilagodi);
 
   if (!ja.registrovan) {
     document.querySelector('main').innerHTML = `<div class="card">

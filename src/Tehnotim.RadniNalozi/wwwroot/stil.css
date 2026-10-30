@@ -3,8 +3,12 @@
   --ok:#1d7a4a;--ok-bg:#dcf1e5;--bad:#b3261e;--bad-bg:#fbe3e1;--warn:#9a5b00;--warn-bg:#fbecd2}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
-header{background:var(--band);color:#fff;padding:10px 0}
-header .traka{max-width:900px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+header{background:var(--band);color:#fff;padding:10px 0;display:grid;grid-template-columns:1fr minmax(0,var(--sirina,900px)) 1fr;align-items:center}
+header > .brand{grid-column:1;justify-self:start;padding-left:20px}
+header .traka{grid-column:2;padding:0 16px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+header.usko{display:flex;flex-wrap:wrap;gap:8px 0}
+header.usko > .brand{padding-left:16px}
+header.usko .traka{flex:1}
 header .brand{font-weight:700;font-size:18px}
 header nav{display:flex;gap:2px;flex:1;flex-wrap:wrap}
 header nav a{color:#e6ecf3;text-decoration:none;font-weight:600;font-size:14px;padding:6px 8px;border-radius:6px}
@@ -37,4 +41,4 @@ label.f span{font-size:12px;font-weight:600;text-transform:uppercase;letter-spac
 .greska{color:var(--bad);font-weight:600}
 
 header .brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}
-header .brand img.logo{height:26px;width:auto;display:block}
+header .brand img.logo{height:30px;width:auto;display:block}
