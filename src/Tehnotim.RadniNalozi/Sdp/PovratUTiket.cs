@@ -64,15 +64,15 @@ public static class PovratUTiket
                 var (pdf, ime) = await PdfApi.NapraviAsync(cs, n, webRoot);
                 string? greskaPdf = null;
                 var prilozen = false;
-                foreach (var (putanja, polje) in new[]
+                // SDP v3 (help.servicedeskplus.com/v3-attachment-api-changes): PUT /api/v3/requests/{id}/upload, polje input_file
+                foreach (var (metod, putanja, polje) in new[]
                          {
-                             ($"/api/v3/requests/{tiket}/_uploads", "filename"),
-                             ($"/api/v3/requests/{tiket}/_uploads", "input_file"),
-                             ($"/api/v3/requests/{tiket}/attachments", "filename")
+                             (HttpMethod.Put, $"/api/v3/requests/{tiket}/upload", "input_file"),
+                             (HttpMethod.Post, $"/api/v3/requests/{tiket}/upload", "input_file")
                          })
                 {
-                    try { await SdpVeza.PostFajlAsync(cs, putanja, pdf, ime, polje); prilozen = true; break; }
-                    catch (SdpGreska ex) { greskaPdf = ex.Message; }
+                    try { await SdpVeza.PostFajlAsync(cs, metod, putanja, pdf, ime, polje); prilozen = true; break; }
+                    catch (SdpGreska ex) { greskaPdf ??= ex.Message; }
                 }
 
                 var html = $"<b>Radni nalog {H(n.Broj)} je završen</b> (potpisan od korisnika usluge)<br>"

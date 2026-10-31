@@ -43,15 +43,15 @@ public static class SdpVeza
             Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("input_data", JsonSerializer.Serialize(inputData))])
         });
 
-    /// <summary>POST fajla (multipart) – prilog tiketu.</summary>
-    public static Task<JsonElement> PostFajlAsync(string cs, string putanja, byte[] sadrzaj, string imeFajla, string polje)
+    /// <summary>Slanje fajla (multipart) – prilog tiketu. SDP v3: PUT /api/v3/requests/{id}/upload, polje input_file.</summary>
+    public static Task<JsonElement> PostFajlAsync(string cs, HttpMethod metod, string putanja, byte[] sadrzaj, string imeFajla, string polje)
     {
         return PosaljiAsync(cs, url =>
         {
             var dio = new ByteArrayContent(sadrzaj);
             dio.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
             var forma = new MultipartFormDataContent { { dio, polje, imeFajla } };
-            return new HttpRequestMessage(HttpMethod.Post, url + putanja) { Content = forma };
+            return new HttpRequestMessage(metod, url + putanja) { Content = forma };
         });
     }
 
