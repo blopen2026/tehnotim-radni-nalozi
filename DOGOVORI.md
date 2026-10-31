@@ -2,6 +2,14 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-31 – Veza sa ServiceDesk Plus-om (faza 2)
+
+- Nalog iz tiketa se pravi **ručno**: u aplikaciji se upiše/izabere broj tiketa (uz listu otvorenih tiketa bez naloga), aplikacija popuni nacrt. Automatika (svaki novi tiket / pri dodjeli tehničara) eventualno kasnije.
+- Iz tiketa: interni broj = `id`; klijent = SDP `site` (tabela veza site → klijent); vrijeme zahtjeva = `created_time`.
+- RGU šalje tikete iz svog Redmine-a: eksterni broj = broj iza `#` u naslovu (`[TEHNOTIM - Хардвер #39422]`), poslovna jedinica iz teksta („Аутор: Kalinovik PJ”), opis = tekst bez HTML-a i Redmine zaglavlja; ćirilica → latinica.
+- Ostali klijenti uglavnom šalju obične mailove – pravila za njih nakon pregleda primjera tiketa.
+- Ako se jedinica ne prepozna, bira se ručno u nacrtu.
+
 ## 2026-10-30 – Testno okruženje
 
 - Prije produkcije pravi se testni server koji simulira produkcioni: virtuelna mašina (Hyper-V) na razvojnom laptopu (16 GB RAM).
