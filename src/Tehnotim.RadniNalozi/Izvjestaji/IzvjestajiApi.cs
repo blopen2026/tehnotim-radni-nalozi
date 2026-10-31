@@ -227,7 +227,7 @@ public static class IzvjestajiApi
 
         // Nalozi
         var ns = wb.AddWorksheet("Nalozi");
-        Zaglavlje(ns, 1, "Broj", "Datum", "Klijent", "Poslovna jedinica", "Nosilac", "Interni", "Eksterni", "Uređaj", "Faza", "Status",
+        Zaglavlje(ns, 1, "Broj", "Datum", "Klijent", "Poslovna jedinica", "Nosilac", "Zahtjev (interni)", "Tiket klijenta (eksterni)", "Uređaj", "Faza", "Status",
                   "Intervencija", "Naplata", "Ugovor", "Vrijeme (sati)", "Vrijeme (tekst)", "Km", "Putni troškovi (KM)", "Opis intervencije");
         red = 2;
         foreach (var n in r.Nalozi)

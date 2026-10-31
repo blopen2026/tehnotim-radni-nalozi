@@ -66,7 +66,7 @@
     <div class="card">
       <h2>Nalozi</h2>
       <div class="tablebox"><table>
-        <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Uređaj</th><th>Faza</th><th class="br">Vrijeme</th><th class="br">Km</th><th>Naplata</th></tr></thead>
+        <thead><tr><th>Broj</th><th>Zahtjev / tiket klijenta</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Uređaj</th><th>Faza</th><th class="br">Vrijeme</th><th class="br">Km</th><th>Naplata</th></tr></thead>
         <tbody id="nalozi"></tbody>
       </table></div>
     </div>
@@ -143,12 +143,13 @@ async function prikazi() {
       <td class="br">${sati(z.minuta)}</td><td class="br">${br(z.km, 1)}</td><td class="br">${br(z.putni, 2)}</td></tr>` : '';
 
   $('#nalozi').innerHTML = d.nalozi.map(n => `<tr class="klik" data-id="${n.id}">
-      <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="sitno">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
+      <td class="mono">${esc(n.broj)}</td>
+      <td>${n.pozivInterni ? `<div><span class="sitno">zahtjev</span> <span class="mono">${esc(n.pozivInterni)}</span></div>` : ''}${n.pozivEksterni ? `<div><span class="sitno">tiket klijenta</span> <b class="mono">${esc(n.pozivEksterni)}</b></div>` : ''}</td>
       <td>${fD(n.datumIzdavanja)}</td><td>${esc(n.klijentNaziv)}<div class="sitno">${esc(n.lokacija || '')}</div></td>
       <td>${esc(n.nosilacIme || '')}</td><td class="sitno">${esc(n.prviUredjaj || '')}</td><td>${FAZE[n.faza] || n.faza}</td>
       <td class="br">${n.minuta == null ? `<span class="greska" title="${esc(n.utrosenoVrijeme || 'nije upisano')}">nema</span>` : sati(n.minuta)}</td>
       <td class="br">${br(n.km, 1)}</td><td>${esc(n.naplata || '')}</td></tr>`).join('')
-    || '<tr><td colspan="9" class="muted">Nema naloga.</td></tr>';
+    || '<tr><td colspan="10" class="muted">Nema naloga.</td></tr>';
   document.querySelectorAll('#nalozi tr[data-id]').forEach(tr => tr.onclick = () => window.open(`nalog.html?id=${tr.dataset.id}`, '_blank'));
 
   $('#materijal-card').hidden = !d.materijal.length;
