@@ -18,3 +18,9 @@ Meni **Izvještaji** (svi korisnici).
 Računa se iz početka i završetka rada. Ako je vrijeme upisano ručno, čita se iz teksta: „2 h 30 min”, „1,5 h”, „2:30”, „3”.
 Nalozi kod kojih se vrijeme ne može odrediti označeni su crveno „nema” (prelaskom miša vidi se šta je upisano)
 i broje se u „bez upisanog vremena”.
+
+## PDF svih naloga iz izvještaja
+
+Ispod filtera: **Jedan PDF (svi nalozi)** – svi filtrirani nalozi jedan za drugim u jednom PDF-u;
+**ZIP (svaki nalog poseban PDF)** – svaki nalog kao poseban PDF (isto ime fajla kao kod „Sačuvaj PDF” u nalogu) u jednoj ZIP arhivi.
+Važe isti filteri kao za izvještaj (serviser – samo svoji nalozi). Najviše 300 naloga odjednom.

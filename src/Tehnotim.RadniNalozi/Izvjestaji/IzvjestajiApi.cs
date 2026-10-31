@@ -1,10 +1,15 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Tehnotim.RadniNalozi.Nalozi;
+using Tehnotim.RadniNalozi.Pdf;
 using Tehnotim.RadniNalozi.Prijava;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 
 namespace Tehnotim.RadniNalozi.Izvjestaji;
 
@@ -87,7 +92,53 @@ public static class IzvjestajiApi
             var ime = $"Izvjestaj-nalozi_{(u.Od ?? DateTime.Today):yyyy-MM-dd}_{(u.Do ?? DateTime.Today):yyyy-MM-dd}.xlsx";
             return Results.File(bajtovi, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ime);
         });
+
+        // PDF svih naloga iz izvještaja: ?nacin=jedan (svi u jednom PDF-u) ili ?nacin=zip (svaki nalog poseban PDF u ZIP-u)
+        g.MapGet("/pdf", async (ClaimsPrincipal ko, IWebHostEnvironment env, string? nacin, DateTime? od, DateTime? @do, int? klijentId, int? jedinicaId,
+                                int? nosilacId, int? sektorId, string? faza, string? naplata, string? ugovor, string? intervencija) =>
+        {
+            var u = new IzvjestajUpit(od, @do, klijentId, jedinicaId, nosilacId, sektorId, faza, naplata, ugovor, intervencija, null);
+            var r = await NapraviAsync(cs, ko, u);
+            if (r.Nalozi.Count == 0) return Results.BadRequest(new { greska = "Nema naloga za izabrane filtere." });
+            if (r.Nalozi.Count > MaxPdf) return Results.BadRequest(new { greska = $"Izabrano je {r.Nalozi.Count} naloga – za PDF je najviše {MaxPdf}. Suzite period ili filtere." });
+
+            var period = $"{(u.Od ?? r.Nalozi.Min(n => n.DatumIzdavanja)):yyyy-MM-dd}_{(u.Do ?? DateTime.Today):yyyy-MM-dd}";
+            if (nacin == "zip")
+            {
+                using var zipTok = new MemoryStream();
+                using (var zip = new ZipArchive(zipTok, ZipArchiveMode.Create, leaveOpen: true))
+                {
+                    var imena = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var stavka in r.Nalozi)
+                    {
+                        var n = await NaloziApi.UcitajAsync(cs, stavka.Id);
+                        if (n is null) continue;
+                        var (pdf, ime) = await PdfApi.NapraviAsync(cs, n, env.WebRootPath);
+                        if (!imena.Add(ime)) { ime = Path.GetFileNameWithoutExtension(ime) + "_RN-" + n.Broj.Replace('/', '-') + ".pdf"; imena.Add(ime); }
+                        var ulaz = zip.CreateEntry(ime, CompressionLevel.Fastest);
+                        await using var t = ulaz.Open();
+                        await t.WriteAsync(pdf);
+                    }
+                }
+                return Results.File(zipTok.ToArray(), "application/zip", $"Radni-nalozi_{period}.zip");
+            }
+
+            using var izlaz = new PdfDocument();
+            foreach (var stavka in r.Nalozi)
+            {
+                var n = await NaloziApi.UcitajAsync(cs, stavka.Id);
+                if (n is null) continue;
+                var (pdf, _) = await PdfApi.NapraviAsync(cs, n, env.WebRootPath);
+                using var izvor = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
+                foreach (var strana in izvor.Pages) izlaz.AddPage(strana);
+            }
+            using var tok = new MemoryStream();
+            izlaz.Save(tok, false);
+            return Results.File(tok.ToArray(), "application/pdf", $"Radni-nalozi_{period}.pdf");
+        });
     }
+
+    private const int MaxPdf = 300;
 
     public record Rezultat(object Zbir, List<IzvjestajGrupa> Grupe, List<IzvjestajNalog> Nalozi, List<IzvjestajMaterijal> Materijal,
                            bool SamoSvoji, string NazivGrupe);

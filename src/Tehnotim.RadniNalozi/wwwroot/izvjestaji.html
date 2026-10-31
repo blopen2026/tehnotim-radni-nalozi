@@ -47,7 +47,9 @@
       <label class="f"><span>Intervencija</span><select id="intervencija"><option value="">Sve</option><option>NA TERENU</option><option>SERVIS/KANCELARIJA</option></select></label>
       <label class="f"><span>Grupiši po</span><select id="grupa"><option value="klijent">Klijentu</option><option value="jedinica">Poslovnoj jedinici</option><option value="nosilac">Nosiocu</option><option value="mjesec">Mjesecu</option></select></label>
     </div>
-    <div class="akcije"><button class="primary" id="prikazi">Prikaži</button><button id="excel">Izvoz u Excel</button><button id="stampa">Štampaj / PDF</button><span id="poruka"></span></div>
+    <div class="akcije"><button class="primary" id="prikazi">Prikaži</button><button id="excel">Izvoz u Excel</button><button id="stampa">Štampaj / PDF izvještaja</button><span id="poruka"></span></div>
+    <div class="akcije" style="margin-top:8px"><span class="muted" style="font-size:13px">PDF svih naloga iz izvještaja:</span>
+      <button id="pdf-jedan">Jedan PDF (svi nalozi)</button><button id="pdf-zip">ZIP (svaki nalog poseban PDF)</button><span id="pdf-poruka" class="muted" style="font-size:13px"></span></div>
   </div>
 
   <div id="rezultat" hidden>
@@ -161,6 +163,21 @@ $('#klijent').onchange = ucitajJedinice;
 $('#prikazi').onclick = prikazi;
 $('#excel').onclick = () => { location.href = '/api/izvjestaj/excel?' + parametri(); };
 $('#stampa').onclick = async () => { if ($('#rezultat').hidden) await prikazi(); window.print(); };
+
+// PDF svih filtriranih naloga – prvo provjera (broj, greška), pa preuzimanje
+async function pdfNaloga(nacin) {
+  const p = parametri(); p.delete('grupa'); p.set('nacin', nacin);
+  $('#pdf-poruka').textContent = 'Pravim PDF naloga… (može potrajati kod većeg broja)';
+  const r = await fetch('/api/izvjestaj/pdf?' + p);
+  if (!r.ok) { const g = await r.json().catch(() => ({})); $('#pdf-poruka').innerHTML = `<span class="greska">${esc(g.greska || 'PDF nije napravljen.')}</span>`; return; }
+  const ime = decodeURIComponent((r.headers.get('content-disposition') || '').match(/filename\*=UTF-8''([^;]+)/)?.[1] || '') || (nacin === 'zip' ? 'Radni-nalozi.zip' : 'Radni-nalozi.pdf');
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement('a'); a.href = url; a.download = ime; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  $('#pdf-poruka').textContent = 'Preuzeto: ' + ime;
+}
+$('#pdf-jedan').onclick = () => pdfNaloga('jedan');
+$('#pdf-zip').onclick = () => pdfNaloga('zip');
 
 (async () => {
   const ja = await ucitajZaglavlje('izvjestaji');
