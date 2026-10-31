@@ -76,6 +76,7 @@ const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 
 
 let S = { klijenti: [], tipovi: [], modeli: [], materijal: [], nosioci: [], postavke: {}, jedinice: [] };
 let cur = null, nalogId = new URLSearchParams(location.search).get('id'), vrijemeRucno = false;
+let tiketId = new URLSearchParams(location.search).get('tiket'), nacrt = null, sviNosioci = false;
 
 const tipById = id => S.tipovi.find(t => String(t.id) === String(id));
 const kByName = n => S.klijenti.find(k => norm(k.naziv) === norm(n));
@@ -89,6 +90,12 @@ function buildForm() {
   const n = cur;
   $('#main').innerHTML = `
   <div class="head"><a href="nalozi.html" id="nazad">← Nalozi</a><h1 style="margin:0">${n.broj ? `Radni nalog <span class="mono">${esc(n.broj)}</span>` : 'Novi radni nalog'}</h1>${n.faza ? `<span class="chip ${n.faza}">${FAZE[n.faza]}</span>` : ''}</div>
+
+  ${nacrt ? `<div class="sec" id="iz-tiketa"><div class="lab">Iz tiketa</div><div class="body">
+    <div><b class="mono">${esc(nacrt.interni)}</b> · ${esc(nacrt.naslov || '')}</div>
+    <div class="muted" style="font-size:13px">${esc([nacrt.siteNaziv && 'SDP site: ' + nacrt.siteNaziv, nacrt.requesterNaziv && 'requester: ' + nacrt.requesterNaziv, nacrt.sektor ? 'sektor: ' + nacrt.sektor : (nacrt.grupa && 'grupa: ' + nacrt.grupa)].filter(Boolean).join(' · '))}</div>
+    <ul id="tiket-napomene" style="margin:6px 0 0;padding-left:18px;font-size:14px"></ul>
+  </div></div>` : ''}
 
   <div class="sec"><div class="lab">Nalog</div><div class="body">
     <div class="g">
@@ -180,9 +187,7 @@ function buildForm() {
   $('#f-tarifa').value = n.tarifaKm ?? (S.postavke.tarifaKm || '');
   $('#f-kasnije').checked = !!n.potpisKasnije;
 
-  $('#f-nosilac').innerHTML = '<option value="">— izaberi —</option>' + S.nosioci.map(x => `<option value="${x.id}">${esc(x.ime)}</option>`).join('')
-    + (n.nosilacKorisnikId && !S.nosioci.some(x => x.id === n.nosilacKorisnikId) ? `<option value="${n.nosilacKorisnikId}">${esc(n.nosilacIme || '')}</option>` : '');
-  $('#f-nosilac').value = n.nosilacKorisnikId ? String(n.nosilacKorisnikId) : '';
+  popuniNosioce(n.nosilacKorisnikId, n.nosilacIme);
 
   renderDevRows(n.uredjaji.length ? n.uredjaji : [{}]);
   renderMatRows(n.materijal.length ? n.materijal : [{}]);
@@ -190,8 +195,7 @@ function buildForm() {
   padS = pad($('#sig-s'), n.potpisServiser ? 'data:image/png;base64,' + n.potpisServiser : null);
   padK = pad($('#sig-k'), n.potpisKorisnik ? 'data:image/png;base64,' + n.potpisKorisnik : null, () => { $('#f-kasnije').checked = false; });
   $$('[data-clear]').forEach(b => b.onclick = () => (b.dataset.clear === 's' ? padS : padK).clear());
-  const imeServisera = () => { const o = $('#f-nosilac').selectedOptions[0]; $('#sig-s-name').textContent = o && o.value ? o.textContent : 'Izaberite nosioca naloga gore'; };
-  $('#f-nosilac').addEventListener('change', imeServisera); imeServisera();
+  const o0 = $('#f-nosilac').selectedOptions[0]; $('#sig-s-name').textContent = o0 && o0.value ? o0.textContent : 'Izaberite nosioca naloga gore';
 
   $('#f-klijent').addEventListener('change', () => onKlijent(true));
   $('#f-klijent').addEventListener('input', klijentHint);
@@ -211,7 +215,40 @@ function buildForm() {
   if (n.id) ucitajIstoriju();
   if (document.referrer.includes('/nalozi.html')) $('#nazad').href = document.referrer;
 
-  onKlijent(false); calcTime(); calcTravel();
+  if (nacrt && !n.id) primijeniNacrt(); else onKlijent(false);
+  calcTime(); calcTravel();
+}
+
+// Popunjavanje nove forme iz tiketa: klijent → jedinica → adresa/kontakt/km, napomene šta je predloženo
+async function primijeniNacrt() {
+  await onKlijent(true);
+  if (nacrt.jedinicaNaziv && jByName(nacrt.jedinicaNaziv)) { $('#f-lokacija').value = nacrt.jedinicaNaziv; onLok(); }
+  const nap = [];
+  if (nacrt.postojeciNalog) nap.push(`<span class="greska">Za ovaj tiket već postoji nalog <a href="nalog.html?id=${nacrt.postojeciNalogId}">${esc(nacrt.postojeciNalog)}</a>.</span>`);
+  if (!nacrt.klijentNaziv) nap.push(`Klijent za SDP site „${esc(nacrt.siteNaziv || '?')}” nije prepoznat – izaberite ga; aplikacija će to zapamtiti.`);
+  else if (!nacrt.klijentZapamcen) nap.push(`Klijent <b>${esc(nacrt.klijentNaziv)}</b> je <b>predložen</b> po nazivu – provjerite; pri čuvanju se pamti za SDP site „${esc(nacrt.siteNaziv || '')}”.`);
+  if (nacrt.klijentNaziv) {
+    if (!$('#f-lokacija').value) nap.push(`Poslovna jedinica nije prepoznata${nacrt.jedinicaIzTeksta ? ` (u tiketu: „${esc(nacrt.jedinicaIzTeksta)}”)` : ''} – izaberite je${nacrt.zajednickiRequester ? '' : '; aplikacija će zapamtiti za ovog requestera'}.`);
+    else if (!nacrt.jedinicaZapamcena) nap.push(`Poslovna jedinica <b>${esc($('#f-lokacija').value)}</b> je <b>predložena</b>${nacrt.jedinicaIzTeksta ? ` iz teksta („${esc(nacrt.jedinicaIzTeksta)}”)` : ' po nazivu requestera'} – provjerite.`);
+  }
+  if (nacrt.sektor && !nacrt.nosiociSektora?.length) nap.push(`U sektoru ${esc(nacrt.sektor)} nema nijednog nosioca (Korisnici → Sektori) – nude se svi.`);
+  if ($('#tiket-napomene')) $('#tiket-napomene').innerHTML = nap.map(x => `<li>${x}</li>`).join('') || '<li class="muted">Klijent i jedinica su zapamćeni iz ranijih tiketa.</li>';
+  izmjene = true;
+}
+
+// ---------- Nosilac (iz tiketa: samo serviseri sektora, uz „prikaži sve”) ----------
+function popuniNosioce(izabran, imeIzabranog) {
+  const sektor = nacrt?.nosiociSektora?.length && !sviNosioci ? nacrt.nosiociSektora : null;
+  const lista = sektor ? S.nosioci.filter(x => sektor.includes(x.id)) : S.nosioci;
+  const el = $('#f-nosilac');
+  el.innerHTML = `<option value="">— izaberi${sektor ? ` (${esc(nacrt.sektor)})` : ''} —</option>` + lista.map(x => `<option value="${x.id}">${esc(x.ime)}</option>`).join('')
+    + (izabran && !lista.some(x => x.id === izabran) ? `<option value="${izabran}">${esc(imeIzabranog || S.nosioci.find(x => x.id === izabran)?.ime || '')}</option>` : '')
+    + (sektor ? '<option value="__svi">— prikaži sve nosioce —</option>' : '');
+  el.value = izabran ? String(izabran) : '';
+  el.onchange = () => {
+    if (el.value === '__svi') { sviNosioci = true; popuniNosioce(null); el.focus(); }
+    const o = el.selectedOptions[0]; $('#sig-s-name').textContent = o && o.value && o.value !== '__svi' ? o.textContent : 'Izaberite nosioca naloga gore';
+  };
 }
 
 // ---------- Klijent i jedinica ----------
@@ -483,7 +520,10 @@ async function save() {
     putDestinacija: $('#f-dest').value.trim() || null, kmTamo: broj($('#f-km1').value), kmNazad: broj($('#f-km2').value), tarifaKm: broj($('#f-tarifa').value),
     status: getR('status'), intervencija: getR('interv'), potpisKasnije: $('#f-kasnije').checked,
     potpisServiser: padS.get(), potpisKorisnik: padK.get(),
-    uredjaji: collectDevs(), materijal: collectMats()
+    uredjaji: collectDevs(), materijal: collectMats(),
+    sektorId: nacrt?.sektorId ?? cur?.sektorId ?? null,
+    sdp: nacrt && !nalogId ? { zahtjevId: +nacrt.interni, siteId: nacrt.siteId, siteNaziv: nacrt.siteNaziv, requesterId: nacrt.requesterId,
+      requesterNaziv: nacrt.requesterNaziv, requesterEmail: nacrt.requesterEmail, zajednickiRequester: nacrt.zajednickiRequester } : null
   };
   const b = $('#save'); b.disabled = true; $('#save-state').textContent = 'Čuvam…';
   try {
@@ -493,6 +533,7 @@ async function save() {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || (d.errors ? 'Neispravan unos: ' + Object.keys(d.errors).join(', ') : 'Nije sačuvano.'))}</span>`; return; }
     nalogId = String(d.id);
+    nacrt = null; tiketId = null;
     history.replaceState(null, '', `nalog.html?id=${d.id}`);
     // Svježi šifarnici (novi model, stanje magacina, jedinica)
     [S.modeli, S.materijal] = await Promise.all([fetch('/api/uredjaji/modeli').then(x => x.json()), fetch('/api/magacin/artikli').then(x => x.json())]);
@@ -547,12 +588,21 @@ async function ucitajNalog() {
     const r = await fetch(`/api/nalozi/${nalogId}`);
     if (!r.ok) { $('#main').innerHTML = '<div class="card">Nalog ne postoji. <a href="/">Početna</a></div>'; return; }
     cur = await r.json();
+  } else if (tiketId) {
+    $('#main').innerHTML = `<div class="card">Učitavam tiket ${esc(tiketId)} iz ServiceDesk Plus-a…</div>`;
+    const r = await fetch(`/api/tiketi/${encodeURIComponent(tiketId)}/nacrt`);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('#main').innerHTML = `<div class="card"><p class="greska">${esc(d.greska || 'Tiket nije učitan.')}</p><a href="tiketi.html">← Nazad na tikete</a></div>`; return; }
+    nacrt = d;
+    cur = { datumIzdavanja: danas(), zahtjevVrijeme: d.zahtjevVrijeme || sada(), pozivInterni: d.interni, pozivEksterni: d.eksterni,
+            klijentNaziv: d.klijentNaziv || '', lokacija: '', opisZahtjeva: d.opisZahtjeva || '', uredjajPredao: d.uredjajPredao || '',
+            uredjaji: d.inventurniBroj ? [{ inventurniBroj: d.inventurniBroj }] : [], materijal: [], nosilacKorisnikId: null, sektorId: d.sektorId };
   } else {
     const ja = window.ja;
     cur = { datumIzdavanja: danas(), zahtjevVrijeme: sada(), uredjaji: [], materijal: [],
             nosilacKorisnikId: S.nosioci.find(x => x.korisnickiNalog?.toLowerCase() === (ja.nalog || '').toLowerCase())?.id || null };
   }
-  document.title = (cur.broj ? `Nalog ${cur.broj}` : 'Novi nalog') + ' – Tehnotim';
+  document.title = (cur.broj ? `Nalog ${cur.broj}` : nacrt ? `Nalog iz tiketa ${nacrt.interni}` : 'Novi nalog') + ' – Tehnotim';
   buildForm();
 }
 
@@ -570,7 +620,7 @@ $('#main').addEventListener('click', e => {
 });
 
 (async () => {
-  window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : 'novi');
+  window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : tiketId ? 'tiketi' : 'novi');
   if (!ja.registrovan) return;
   [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke] = await Promise.all(
     ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/magacin/artikli', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));

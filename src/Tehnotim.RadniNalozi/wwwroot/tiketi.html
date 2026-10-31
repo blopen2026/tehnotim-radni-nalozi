@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iz tiketa – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  .filteri{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .filteri button{border-radius:999px;padding:5px 12px;font-size:13px}
+  .filteri button[aria-pressed="true"]{background:var(--band);color:#fff;border-color:var(--band)}
+  td.sitno,.sitno{font-size:13px;color:var(--muted)}
+  td.naslov{max-width:380px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Nalog iz tiketa</h1>
+    <p class="muted">Otvoreni tiketi iz ServiceDesk Plus-a za koje još nema radnog naloga. „Napravi nalog” otvara formu popunjenu podacima iz tiketa –
+      nalog dobija broj tek kad ga sačuvate.</p>
+    <div class="akcije">
+      <input id="trazi" type="search" placeholder="Broj, naslov, klijent…" style="max-width:280px">
+      <div class="filteri" id="filteri">
+        <button data-svi="0" aria-pressed="false">Moj sektor</button>
+        <button data-svi="1" aria-pressed="false">Svi tiketi</button>
+      </div>
+      <span style="flex:1"></span>
+      <input id="broj" inputmode="numeric" placeholder="ili upišite broj tiketa" style="max-width:190px"><button id="otvori">Otvori</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tablebox"><table>
+      <thead><tr><th>Tiket</th><th>Naslov</th><th>Klijent (SDP)</th><th>Dodijeljeno</th><th></th></tr></thead>
+      <tbody id="lista"><tr><td colspan="5" class="muted">Učitavam tikete iz ServiceDesk Plus-a…</td></tr></tbody>
+    </table></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const fDT = d => d ? new Date(d).toLocaleString('bs-BA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+let podaci = { tiketi: [] }, svi = null;
+
+async function ucitaj() {
+  $('#lista').innerHTML = '<tr><td colspan="5" class="muted">Učitavam tikete iz ServiceDesk Plus-a…</td></tr>';
+  const r = await fetch('/api/tiketi' + (svi === null ? '' : `?svi=${svi}`));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#lista').innerHTML = `<tr><td colspan="5" class="greska">${esc(d.greska || 'Tiketi nisu učitani.')}</td></tr>`; return; }
+  podaci = d; svi = d.prikaziSve;
+  $('#filteri').hidden = !d.imaSektor;
+  document.querySelectorAll('#filteri button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.svi === '1') === svi)));
+  prikazi();
+}
+function prikazi() {
+  const q = $('#trazi').value.trim().toLowerCase();
+  const lista = podaci.tiketi.filter(t => !q || [t.id, t.naslov, t.site, t.requester, t.grupa, t.tehnicar].some(x => (x || '').toLowerCase().includes(q)));
+  $('#lista').innerHTML = lista.length ? lista.map(t => `<tr>
+      <td><b class="mono">${esc(t.id)}</b><div class="sitno">${fDT(t.kreirano)}</div></td>
+      <td class="naslov">${esc(t.naslov || '')}<div class="sitno">${esc(t.status || '')}</div></td>
+      <td>${esc(t.site || '')}<div class="sitno">${esc(t.requester || '')}</div></td>
+      <td>${esc(t.sektor || t.grupa || '')}<div class="sitno">${esc([t.tehnicar, t.sektor && t.grupa].filter(Boolean).join(' · '))}</div></td>
+      <td><button class="primary" onclick="location.href='nalog.html?tiket=${encodeURIComponent(t.id)}'">Napravi nalog</button></td></tr>`).join('')
+    : `<tr><td colspan="5" class="muted">${podaci.tiketi.length ? 'Nema tiketa za ovu pretragu.' : svi ? 'Nema otvorenih tiketa bez naloga.' : 'Nema otvorenih tiketa vašeg sektora bez naloga – pogledajte „Svi tiketi”.'}</td></tr>`;
+}
+document.querySelectorAll('#filteri button').forEach(b => b.onclick = () => { svi = b.dataset.svi === '1'; ucitaj(); });
+$('#trazi').oninput = prikazi;
+$('#otvori').onclick = () => { const b = $('#broj').value.trim(); if (/^\d+$/.test(b)) location.href = `nalog.html?tiket=${b}`; };
+$('#broj').onkeydown = e => { if (e.key === 'Enter') $('#otvori').click(); };
+
+(async () => {
+  const ja = await ucitajZaglavlje('tiketi');
+  if (!ja.registrovan) return;
+  ucitaj();
+})();
+</script>
+</body>
+</html>

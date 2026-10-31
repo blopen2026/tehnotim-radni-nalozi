@@ -127,7 +127,7 @@ public static class NaloziApi
     {
         await using var c = new SqlConnection(connectionString);
         var n = await c.QuerySingleOrDefaultAsync<NalogDetalji>(@"
-            SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
+            SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, SektorId, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
                    UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                    Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
@@ -343,7 +343,8 @@ public static class NaloziApi
             Naplata = DaNe(u.Naplata), Ugovor = DaNe(u.Ugovor), Garancija = DaNe(u.Garancija), UredjajPredao = P(u.UredjajPredao),
             u.NosilacKorisnikId, nosilacIme, OpisZahtjeva = P(u.OpisZahtjeva), OpisIntervencije = P(u.OpisIntervencije),
             PutDestinacija = P(u.PutDestinacija), u.KmTamo, u.KmNazad, u.TarifaKm, putniIznos,
-            status, intervencija, PotpisKasnije = potpisKasnije, potpisServiser, potpisKorisnik, faza, korisnik, id
+            status, intervencija, PotpisKasnije = potpisKasnije, potpisServiser, potpisKorisnik, faza, korisnik, id,
+            u.SektorId, sdpZahtjevId = u.Sdp?.ZahtjevId
         };
 
         int nalogId;
@@ -363,12 +364,14 @@ public static class NaloziApi
                 INSERT INTO dbo.Nalog (Godina, RedniBroj, Faza, PozivInterni, PozivEksterni, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
                     UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                     Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
-                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije, PotpisServiser, PotpisKorisnik, Kreirao)
+                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije, PotpisServiser, PotpisKorisnik, Kreirao,
+                    SektorId, SdpZahtjevId)
                 OUTPUT INSERTED.Id
                 VALUES (@godina, @redniBroj, @faza, @PozivInterni, @PozivEksterni, @datum, @ZahtjevVrijeme, @PocetakRada, @ZavrsetakRada,
                     @UtrosenoVrijeme, @UtrosenoRucno, @KlijentId, @jedinicaId, @klijentNaziv, @Lokacija, @Adresa, @Kontakt,
                     @Naplata, @Ugovor, @Garancija, @UredjajPredao, @NosilacKorisnikId, @nosilacIme, @OpisZahtjeva, @OpisIntervencije,
-                    @PutDestinacija, @KmTamo, @KmNazad, @TarifaKm, @putniIznos, @status, @intervencija, @PotpisKasnije, @potpisServiser, @potpisKorisnik, @korisnik)",
+                    @PutDestinacija, @KmTamo, @KmNazad, @TarifaKm, @putniIznos, @status, @intervencija, @PotpisKasnije, @potpisServiser, @potpisKorisnik, @korisnik,
+                    @SektorId, @sdpZahtjevId)",
                 new DynamicParameters(p).Also(d => { d.Add("godina", godina); d.Add("redniBroj", redniBroj); }), tx);
         }
         else
@@ -384,6 +387,7 @@ public static class NaloziApi
                     PutDestinacija = @PutDestinacija, KmTamo = @KmTamo, KmNazad = @KmNazad, TarifaKm = @TarifaKm, PutniIznos = @putniIznos,
                     Status = @status, Intervencija = @intervencija, PotpisKasnije = @PotpisKasnije,
                     PotpisServiser = @potpisServiser, PotpisKorisnik = @potpisKorisnik,
+                    SektorId = @SektorId, SdpZahtjevId = COALESCE(@sdpZahtjevId, SdpZahtjevId),
                     Izmijenjeno = SYSUTCDATETIME(), Izmijenio = @korisnik
                 WHERE Id = @id", p, tx);
             await c.ExecuteAsync("DELETE FROM dbo.NalogUredjaj WHERE NalogId = @id; DELETE FROM dbo.NalogMaterijal WHERE NalogId = @id;", new { id }, tx);
@@ -410,6 +414,10 @@ public static class NaloziApi
         // Magacin: knjiži se samo razlika u odnosu na prethodno čuvanje
         var broj = postojeciBroj ?? await c.ExecuteScalarAsync<string>("SELECT Broj FROM dbo.Nalog WHERE Id = @nalogId", new { nalogId }, tx);
         var upozorenja = await Knjizenje.KnjiziAsync(c, tx, nalogId, broj, stareStavke, stavkeMaterijala, korisnik);
+
+        // Tiket iz kojeg je nalog napravljen: zapamti veze site → klijent, requester → jedinica
+        if (u.Sdp is not null)
+            await Tehnotim.RadniNalozi.Sdp.TiketiApi.ZapamtiVezeAsync(c, tx, u.Sdp, u.KlijentId, jedinicaId, korisnik);
 
         // Istorija
         await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",

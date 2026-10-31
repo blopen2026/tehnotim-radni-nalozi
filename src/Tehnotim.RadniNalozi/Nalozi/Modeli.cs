@@ -40,6 +40,10 @@ public class NalogUnos
 
     public List<NalogUredjajUnos> Uredjaji { get; set; } = [];
     public List<NalogMaterijalUnos> Materijal { get; set; } = [];
+
+    public int? SektorId { get; set; }
+    /// <summary>Tiket iz kojeg je nalog napravljen (samo pri prvom čuvanju naloga iz tiketa).</summary>
+    public Tehnotim.RadniNalozi.Sdp.SdpIzvorUnos? Sdp { get; set; }
 }
 
 public class NalogUredjajUnos
@@ -73,6 +77,7 @@ public class NalogDetalji
     public string? PozivInterni { get; set; }
     public string? PozivEksterni { get; set; }
     public long? SdpZahtjevId { get; set; }
+    public int? SektorId { get; set; }
     public DateTime DatumIzdavanja { get; set; }
     public DateTime? ZahtjevVrijeme { get; set; }
     public DateTime? PocetakRada { get; set; }

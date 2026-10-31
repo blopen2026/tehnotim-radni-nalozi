@@ -100,6 +100,7 @@ app.MapMagacin(connectionString);
 
 // Veza sa ServiceDesk Plus-om i sektori servisera
 app.MapSdp(connectionString);
+app.MapTiketi(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>

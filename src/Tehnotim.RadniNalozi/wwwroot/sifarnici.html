@@ -69,6 +69,16 @@
     <div class="akcije"><button class="primary" id="sdp-sac">Sačuvaj</button><button id="sdp-prov">Provjeri vezu</button><span id="sdp-poruka"></span></div>
   </div>
 
+  <div class="card" id="veze-card" hidden>
+    <h2>Zapamćene veze sa ServiceDesk Plus-om</h2>
+    <p class="muted">Pune se same kad se sačuva nalog napravljen iz tiketa. Pogrešnu vezu obrišite – pri sljedećem tiketu aplikacija će ponovo pitati.</p>
+    <h3 style="font-size:14px;margin:14px 0 6px">SDP site → klijent</h3>
+    <div class="tablebox"><table><thead><tr><th>SDP site</th><th>Klijent</th><th></th></tr></thead><tbody id="veze-site"></tbody></table></div>
+    <h3 style="font-size:14px;margin:14px 0 6px">SDP requester → poslovna jedinica</h3>
+    <div class="tablebox"><table><thead><tr><th>Requester</th><th>Klijent</th><th>Poslovna jedinica</th><th></th></tr></thead><tbody id="veze-req"></tbody></table></div>
+    <div id="veze-poruka"></div>
+  </div>
+
   <div class="card">
     <h2>Nosioci naloga</h2>
     <p class="muted">Aktivni korisnici koji se nude kao nosilac naloga. Mijenja se na stranici Korisnici (kvačica „Može biti nosilac naloga”).</p>
@@ -210,6 +220,25 @@ $('#sdp-prov').onclick = async () => {
   $('#sdp-poruka').innerHTML = r.ok ? `<span class="chip ok">${esc(r.poruka)}</span>` : `<span class="greska">${esc(r.poruka)}</span>`;
 };
 
+// ---------- Zapamćene veze sa SDP-om ----------
+async function ucitajVeze() {
+  const r = await fetch('/api/tiketi/veze');
+  if (!r.ok) return;
+  $('#veze-card').hidden = false;
+  const v = await r.json();
+  $('#veze-site').innerHTML = v.siteovi.map(x => `<tr><td>${esc(x.naziv || x.sdpSiteId)}</td><td>${esc(x.klijentNaziv)}</td>
+      <td><button class="v-del" data-url="/api/tiketi/veze/site/${encodeURIComponent(x.sdpSiteId)}">Obriši</button></td></tr>`).join('')
+    || '<tr><td colspan="3" class="muted">Još nema.</td></tr>';
+  $('#veze-req').innerHTML = v.requesteri.map(x => `<tr><td>${esc(x.naziv || x.sdpRequesterId)}<div class="muted" style="font-size:12px">${esc(x.email || '')}</div></td>
+      <td>${esc(x.klijentNaziv)}</td><td>${esc(x.jedinicaNaziv)}</td>
+      <td><button class="v-del" data-url="/api/tiketi/veze/requester/${encodeURIComponent(x.sdpRequesterId)}">Obriši</button></td></tr>`).join('')
+    || '<tr><td colspan="4" class="muted">Još nema.</td></tr>';
+  document.querySelectorAll('#veze-card .v-del').forEach(b => b.onclick = async () => {
+    if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno?'; return; }
+    if (await posalji(b.dataset.url, 'DELETE', null, $('#veze-poruka'))) ucitajVeze();
+  });
+}
+
 // ---------- Nosioci ----------
 async function ucitajNosioce() {
   const lista = await fetch('/api/nosioci').then(r => r.json());
@@ -253,6 +282,7 @@ $('#post-btn').onclick = async () => {
     if (p.url && p.kljucPostavljen) await ucitajSdpListe();
   }
   ucitajSektore();
+  ucitajVeze();
 })();
 </script>
 </body>
