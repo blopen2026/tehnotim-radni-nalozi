@@ -138,7 +138,7 @@ async function prikazi() {
 
   $('#nalozi').innerHTML = d.nalozi.map(n => `<tr class="klik" data-id="${n.id}">
       <td class="mono">${esc(n.broj)}</td>
-      <td>${n.pozivInterni ? `<div><span class="sitno">zahtjev</span> <span class="mono">${esc(n.pozivInterni)}</span></div>` : ''}${n.pozivEksterni ? `<div><span class="sitno">tiket klijenta</span> <b class="mono">${esc(n.pozivEksterni)}</b></div>` : ''}</td>
+      <td class="mono">${n.pozivInterni ? `<div title="zahtjev (interni)">${esc(n.pozivInterni)}</div>` : ''}${n.pozivEksterni ? `<div title="tiket klijenta (eksterni)"><b>${esc(n.pozivEksterni)}</b></div>` : ''}</td>
       <td>${fD(n.datumIzdavanja)}</td><td><b>${esc(n.klijentSkracenica || n.klijentNaziv)}</b><div class="sitno">${esc(n.lokacija || '')}</div></td>
       <td>${esc(n.nosilacIme || '')}</td><td class="sitno" style="font-size:14px">${esc(n.prviUredjaj || '')}</td><td>${FAZE[n.faza] || n.faza}</td>
       <td class="br">${n.minuta == null ? `<span class="greska" title="${esc(n.utrosenoVrijeme || 'nije upisano')}">nema</span>` : sati(n.minuta)}</td>
