@@ -228,11 +228,15 @@ public static class KlijentiApi
                 "SELECT Id, KlijentId, Naziv, Mjesto, Adresa, PostanskiBroj, Telefon, RadnoVrijeme, KontaktOsoba, Email, KmOdBL FROM dbo.PoslovnaJedinica WHERE KlijentId = @klijentId",
                 new { klijentId }, tx)).ToList();
 
+            // Po adresi se prepoznaje samo jedinica koja je postojala prije uvoza i u istom je mjestu
+            // (dvije jedinice iz istog fajla na istoj adresi, npr. područni centar i područna jedinica, ostaju odvojene)
+            var prijeUvoza = postojece.ToList();
             int novih = 0, azuriranih = 0;
             foreach (var r in redovi)
             {
                 var j = postojece.FirstOrDefault(x => Isto(x.Naziv, r.Naziv))
-                     ?? (r.Adresa is null ? null : postojece.FirstOrDefault(x => Isto(x.Adresa, r.Adresa)));
+                     ?? (r.Adresa is null ? null : prijeUvoza.FirstOrDefault(x => Isto(x.Adresa, r.Adresa)
+                            && (string.IsNullOrWhiteSpace(x.Mjesto) || string.IsNullOrWhiteSpace(r.Mjesto) || Isto(x.Mjesto, r.Mjesto))));
                 if (j is null)
                 {
                     var id = await c.ExecuteScalarAsync<int>(@"

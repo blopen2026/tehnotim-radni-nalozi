@@ -104,7 +104,10 @@ function pripremi() {
       email: uzmi(r, 'email'),
       kmOdBL: parseFloat(uzmi(r, 'kmOdBL').replace(',', '.')) || null
     };
-    const postoji = [...postojece, ...vidjene].some(x => norm(x.naziv) === norm(j.naziv) || (j.adresa && norm(x.adresa) === norm(j.adresa)));
+    // Po adresi samo postojeće jedinice u istom mjestu (dvije jedinice iz fajla na istoj adresi ostaju odvojene)
+    const istoMjesto = x => !x.mjesto || !j.mjesto || norm(x.mjesto) === norm(j.mjesto);
+    const postoji = [...postojece, ...vidjene].some(x => norm(x.naziv) === norm(j.naziv))
+      || (j.adresa && postojece.some(x => norm(x.adresa) === norm(j.adresa) && istoMjesto(x)));
     vidjene.push(j);
     return { j, postoji };
   }).filter(Boolean);
