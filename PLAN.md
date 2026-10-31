@@ -33,7 +33,32 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 
 ## Faza 3 – Dodaci po potrebi
 
-- [ ] Učitavanje ručno popunjenog naloga sa skena
+Urađeno (čeka probu na testnom serveru):
+
 - [ ] Nova početna stranica prema ulozi (serviser: samo svoji nalozi)
-- [ ] Ovlaštene osobe klijenta / portal za potvrdu naloga
-- [ ] Izvještaji radnih naloga (filteri, grupisanje, Excel, štampa) – opis: `docs/izvjestaji.md`
+- [ ] Izvještaji radnih naloga (filteri, grupisanje, Excel, štampa, PDF svih naloga) – opis: `docs/izvjestaji.md`
+
+Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
+
+**Rad servisera**
+- [ ] 1. Rad sa telefona na terenu: forma prilagođena telefonu, „instalacija” na početni ekran (PWA), rad bez interneta (nalog se pošalje kad se veza vrati)
+- [ ] 2. Potpis klijenta na daljinu: link na mail za naloge „čeka potpis” → klijent pregleda i potpiše → nalog završen, PDF u tiket
+- [ ] 3. Skeniranje serijskog broja (bar-kod/QR) kamerom telefona – u nalog i magacin
+
+**Uređaji i ugovori o održavanju**
+- [ ] 4. QR naljepnica na uređaju (štampa iz aplikacije) → skeniranjem istorija uređaja / novi nalog
+- [ ] 5. Plan preventivnog održavanja za uređaje pod ugovorom: podsjetnik i nacrt naloga kad dođe vrijeme
+- [ ] 6. Izvještaj o brojačima štampača (odštampane strane po uređaju i periodu) – za naplatu po strani
+
+**Podsjetnici i automatika**
+- [ ] 7. Obavještenja mailom: nalog čeka potpis > X dana, tiket bez naloga > Y dana, artikal ispod minimuma
+- [ ] 8. Automatski nacrti naloga iz SDP-a (kad se tiket dodijeli sektoru)
+
+**Magacin i fakturisanje**
+- [ ] 9. Više magacina (glavni + „magacin u vozilu” po serviseru), prenos robe između magacina
+- [ ] 10. Izvoz za knjigovodstvo (format koji učitava knjigovodstveni program)
+
+**Sigurnost i ostalo**
+- [ ] 11. Uloge preko AD grupa (npr. grupa „Serviseri” → uloga serviser)
+- [ ] 12. Učitavanje ručno popunjenog papirnog naloga sa skena (OCR)
+- [ ] 13. Ovlaštene osobe klijenta / portal za potvrdu naloga
