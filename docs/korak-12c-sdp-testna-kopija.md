@@ -40,11 +40,26 @@ New-NetFirewallRule -DisplayName "TEST - blokiran odlazni mail" -Direction Outbo
 Blokira slanje (SMTP) i preuzimanje (POP/IMAP) za sve programe na serveru.
 (Ako produkcija koristi Microsoft 365 / Exchange Online preko OAuth-a, javite – blokira se i to.)
 
-## 4. Instalacija SDP 15200 (na serveru)
+## 4. Instalacija SDP i nadogradnja na 15200 (na serveru) – kako je stvarno prošlo 31.10.2026.
 
-1. Instalacijski fajl **istog builda 15200** (ManageEngine arhiva builda / vaš sačuvani installer) → `Copy-VMFile` na server.
-2. Instalacija: edicija **Standard**, baza **PostgreSQL (ugrađena)**, port **8080** (naša aplikacija je na 80 – ne smetaju se).
-3. Na kraju instalacije **NE pokretati** servis.
+Imali smo instalacijski fajl 15140 i paket za nadogradnju `ManageEngine_ServiceDesk_Plus_15200_SP-7.ppm`
+(to je ZVANIČNI paket za 15100–15150 → 15200; SHA256 `55265970886a8789681551fc2387a96c7711546c6d568110b88de5e5ee3af861`).
+
+Redoslijed koji radi:
+1. Instalacija: Standard, ugrađeni PostgreSQL, port 8080; na kraju NE pokretati server.
+2. **Prije prvog pokretanja**, administratorski Command Prompt: `cd /d "C:\Program Files\ManageEngine\ServiceDesk\bin"` → `initPgsql.bat`.
+   (Bez toga prvo pokretanje padne, a poslije javlja „Previous start failed. Please, Reinitialize DB” – tada je najbrže vratiti checkpoint i ponoviti.)
+3. Pokrenuti **samo servis** (ne i „Start ServiceDesk Server”), sačekati 10–15 min. Adresa je **https**://localhost:8080 (i na 8080 je HTTPS).
+4. Prijava `administrator` / `administrator` → promijeniti lozinku (nadogradnja to traži).
+5. Admin → General Settings → Backup Scheduling → postaviti novu backup lozinku (traži da se napravi backup – na praznoj instalaciji traje kratko).
+6. Zaustaviti servis → `UpdateManager.bat`:
+   - **Import Certificate**: `latest.crt` (https://updates.manageengine.com/certificates/latest.crt) **i svi `.crt` iz `mecerts.zip`** (stranica *Migration Sequence*, red „16000 and later”).
+     Samo `latest.crt` nije dovoljan → „Signature does not match with any available certificates”.
+   - **Install** → SP-7. Prvi put javi „Kindly re-invoke the upgrade process…” – pokrenuti UpdateManager ponovo i opet Install.
+   - Nadogradnja traje dugo (kod nas ~1,5 h).
+
+**Ne raditi:** vraćati backup druge verzije (15100) na instalaciju 15140 pa nadograđivati – nadogradnja odbije bazu
+(„Unknown table name specified GlobalConfig”, „Decryption failed”). Backup se vraća samo na isti build.
 
 ## 5. Vraćanje backupa
 
