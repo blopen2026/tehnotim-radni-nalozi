@@ -93,13 +93,21 @@ public static class SdpVeza
         }
     }
 
+    /// <summary>response_status je kod jednog zapisa objekat, a kod liste niz objekata.</summary>
+    private static JsonElement? StatusObjekat(JsonElement k)
+    {
+        if (k.ValueKind != JsonValueKind.Object || !k.TryGetProperty("response_status", out var rs)) return null;
+        if (rs.ValueKind == JsonValueKind.Object) return rs;
+        if (rs.ValueKind == JsonValueKind.Array && rs.GetArrayLength() > 0 && rs[0].ValueKind == JsonValueKind.Object) return rs[0];
+        return null;
+    }
+
     private static string? Status(JsonElement k) =>
-        k.TryGetProperty("response_status", out var rs) && rs.ValueKind == JsonValueKind.Object && rs.TryGetProperty("status", out var s)
-            ? s.GetString() : null;
+        StatusObjekat(k) is { } rs && rs.TryGetProperty("status", out var s) ? s.GetString() : null;
 
     private static string Poruke(JsonElement k)
     {
-        if (!k.TryGetProperty("response_status", out var rs) || rs.ValueKind != JsonValueKind.Object) return "bez opisa";
+        if (StatusObjekat(k) is not { } rs) return "bez opisa";
         if (rs.TryGetProperty("messages", out var m) && m.ValueKind == JsonValueKind.Array)
             return string.Join("; ", m.EnumerateArray().Select(x => x.TryGetProperty("message", out var t) ? t.GetString() : x.ToString()));
         return rs.ToString();
@@ -112,11 +120,13 @@ public static class SdpVeza
             : null;
 
     /// <summary>Prvi niz u korijenu odgovora (npr. "technicians", "groups", "requests").</summary>
+    /// Kod liste SDP vraća i "response_status" kao niz – njega preskačemo.
     private static List<JsonElement> PrviNiz(JsonElement k)
     {
         if (k.ValueKind != JsonValueKind.Object) return new List<JsonElement>();
         foreach (var p in k.EnumerateObject())
-            if (p.Value.ValueKind == JsonValueKind.Array) return p.Value.EnumerateArray().ToList();
+            if (p.Value.ValueKind == JsonValueKind.Array && p.Name is not ("response_status" or "list_info"))
+                return p.Value.EnumerateArray().ToList();
         return new List<JsonElement>();
     }
 
