@@ -21,10 +21,10 @@ async function ucitajZaglavlje(aktivna) {
     <nav class="${meni.length >= 6 ? 'rasiri' : ''}">${ja.registrovan ? meni.map(([k, url, t]) => `<a href="${url}" class="${k === aktivna ? 'akt' : ''}">${t}</a>`).join('') : ''}</nav>
     <span class="ja"><b>${esc(ja.ime || ja.nalog)}</b>${ja.registrovan ? NAZIVI_ULOGA[ja.uloga] : 'nema pristup'}</span>`;
   document.body.prepend(h);
-  // Logo uz lijevu ivicu ekrana, korisnik uz desnu, meni u sredini preko širine sadržaja stranice ispod.
+  // Logo uz lijevu ivicu ekrana, korisnik uz desnu, meni u sredini – na svim stranicama iste širine (900 px),
+  // da meni izgleda jednako bez obzira na širinu sadržaja stranice.
   // Na uskom ekranu (nema mjesta lijevo i desno od menija) sve ide u jedan red jedno do drugog.
-  const m = document.querySelector('main');
-  const sirina = m ? parseFloat(getComputedStyle(m).maxWidth) || 900 : 900;
+  const sirina = 900;
   h.style.setProperty('--sirina', sirina + 'px');
   const prilagodi = () => h.classList.toggle('usko', window.innerWidth < sirina + 2 * 200);
   prilagodi(); window.addEventListener('resize', prilagodi);
