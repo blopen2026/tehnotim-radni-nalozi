@@ -12,8 +12,8 @@
     <h1>Korisnici</h1>
     <p class="muted">Ko smije koristiti aplikaciju i s kojom ulogom. Prijava ide domenskim nalogom, lozinke se ovdje ne vode.</p>
     <div class="tablebox"><table>
-      <thead><tr><th>Nalog</th><th>Ime i prezime</th><th>Uloga</th><th>Nosilac naloga</th><th>Stanje</th><th>Zadnja prijava</th></tr></thead>
-      <tbody id="lista"><tr><td colspan="6" class="muted">Učitavam…</td></tr></tbody>
+      <thead><tr><th>Nalog</th><th>Ime i prezime</th><th>Uloga</th><th>Nosilac naloga</th><th>Sektori</th><th>Stanje</th><th>Zadnja prijava</th></tr></thead>
+      <tbody id="lista"><tr><td colspan="7" class="muted">Učitavam…</td></tr></tbody>
     </table></div>
   </div>
 
@@ -32,6 +32,8 @@
     </div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="f-aktivan" checked style="width:auto"> Aktivan (smije koristiti aplikaciju)</label>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="f-nosilac" checked style="width:auto"> Može biti nosilac naloga</label>
+    <div style="margin-top:12px"><span class="muted" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Sektori (može više)</span>
+      <div id="f-sektori" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px"></div></div>
     <div class="akcije">
       <button class="primary" id="sacuvaj">Sačuvaj</button>
       <button id="odustani" hidden>Odustani</button>
@@ -41,18 +43,19 @@
 </main>
 <script src="zaglavlje.js"></script>
 <script>
-let urediId = null;
+let urediId = null, sektori = [];
 const $ = s => document.querySelector(s);
 
 async function ucitaj() {
   const r = await fetch('/api/korisnici');
-  if (!r.ok) { $('#lista').innerHTML = '<tr><td colspan="6" class="greska">Samo administrator vidi korisnike.</td></tr>'; return; }
+  if (!r.ok) { $('#lista').innerHTML = '<tr><td colspan="7" class="greska">Samo administrator vidi korisnike.</td></tr>'; return; }
   const lista = await r.json();
   $('#lista').innerHTML = lista.map(k => `<tr class="klik" data-id="${k.id}">
       <td class="mono">${esc(k.korisnickiNalog)}</td>
       <td>${esc(k.imePrezime || '')}</td>
       <td>${NAZIVI_ULOGA[k.uloga]}</td>
       <td>${k.nosilacNaloga ? 'da' : '<span class="muted">ne</span>'}</td>
+      <td>${esc(sektori.filter(s => (k.sektori || []).includes(s.id)).map(s => s.naziv).join(', '))}</td>
       <td>${k.aktivan ? '<span class="chip ok">aktivan</span>' : '<span class="chip bad">isključen</span>'}</td>
       <td class="muted">${k.zadnjaPrijava ? new Date(k.zadnjaPrijava + 'Z').toLocaleString('bs-BA') : '—'}</td></tr>`).join('');
   document.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => uredi(lista.find(k => k.id == tr.dataset.id)));
@@ -67,6 +70,7 @@ function uredi(k) {
   $('#f-uloga').value = k?.uloga || 'serviser';
   $('#f-aktivan').checked = k ? k.aktivan : true;
   $('#f-nosilac').checked = k ? k.nosilacNaloga : true;
+  document.querySelectorAll('#f-sektori input').forEach(c => c.checked = !!k && (k.sektori || []).includes(+c.value));
   $('#odustani').hidden = !k;
   $('#poruka').textContent = '';
   $('#f-nalog').focus();
@@ -80,7 +84,8 @@ $('#sacuvaj').onclick = async () => {
     email: $('#f-email').value.trim(),
     uloga: $('#f-uloga').value,
     aktivan: $('#f-aktivan').checked,
-    nosilacNaloga: $('#f-nosilac').checked
+    nosilacNaloga: $('#f-nosilac').checked,
+    sektori: [...document.querySelectorAll('#f-sektori input:checked')].map(c => +c.value)
   };
   const r = await fetch(urediId ? `/api/korisnici/${urediId}` : '/api/korisnici', {
     method: urediId ? 'PUT' : 'POST',
@@ -97,6 +102,8 @@ $('#sacuvaj').onclick = async () => {
 (async () => {
   const ja = await ucitajZaglavlje('korisnici');
   if (!ja.registrovan) return;
+  sektori = await fetch('/api/sektori').then(r => r.json()).catch(() => []);
+  $('#f-sektori').innerHTML = sektori.filter(s => s.aktivan).map(s => `<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" value="${s.id}" style="width:auto"> ${esc(s.naziv)}</label>`).join('') || '<span class="muted">Nema sektora (dodaju se u Šifarnicima).</span>';
   ucitaj();
 })();
 </script>

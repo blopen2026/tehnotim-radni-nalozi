@@ -16,6 +16,9 @@
   #tip-dodaj{grid-template-columns:1fr auto auto}
   #mat-dodaj{grid-template-columns:2fr 1fr auto}
   .broj{font:700 28px Consolas,monospace}
+  #sektori .stavka{grid-template-columns:1.2fr 1.5fr 1.5fr auto auto auto}
+  #sek-dodaj{grid-template-columns:1fr auto}
+  @media (max-width:760px){#sektori .stavka{grid-template-columns:1fr 1fr}}
   @media (max-width:560px){#tipovi .stavka,#materijal .stavka,#tip-dodaj,#mat-dodaj{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -41,6 +44,29 @@
   <div class="card">
     <h2>Materijal i dijelovi</h2>
     <p class="muted" style="margin:0">Materijal i rezervni dijelovi vode se u <b>Magacinu</b> (stanje, PN, SN, prijem robe). Magacinom upravlja administrator.</p>
+  </div>
+
+  <div class="card">
+    <h2>Sektori</h2>
+    <p class="muted">Sektor = grupa servisera koja u ServiceDesk Plus-u radi preko jednog zajedničkog naloga (tehničara) ili grupe.
+      Kad se nalog pravi iz tiketa, kao nosilac se nude serviseri tog sektora. Ko je u kojem sektoru, određuje se na stranici Korisnici.</p>
+    <div class="lista" id="sektori"></div>
+    <div class="dodaj" id="sek-dodaj" hidden>
+      <input id="sek-naziv" placeholder="Novi sektor">
+      <button id="sek-btn">Dodaj</button>
+    </div>
+    <div id="sek-poruka"></div>
+  </div>
+
+  <div class="card" id="sdp-card" hidden>
+    <h2>Veza sa ServiceDesk Plus</h2>
+    <p class="muted">Adresa SDP-a i API ključ tehničara „Radni nalozi (API)”. Ključ se nikad ne prikazuje – polje ostavite prazno da ostane postojeći.</p>
+    <div class="grid">
+      <label class="f"><span>Adresa SDP-a</span><input id="sdp-url" class="mono" placeholder="https://TEST-NALOZI"></label>
+      <label class="f"><span>API ključ</span><input id="sdp-kljuc" type="password" autocomplete="new-password" class="mono"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="sdp-cert" style="width:auto"> Ne provjeravaj certifikat (samo testni server sa samopotpisanim certifikatom)</label>
+    <div class="akcije"><button class="primary" id="sdp-sac">Sačuvaj</button><button id="sdp-prov">Provjeri vezu</button><span id="sdp-poruka"></span></div>
   </div>
 
   <div class="card">
@@ -113,6 +139,77 @@ $('#tip-btn').onclick = async () => {
   }
 };
 
+// ---------- Sektori ----------
+let sdpTehnicari = null, sdpGrupe = null, sdpGreska = '';
+async function ucitajSdpListe() {
+  sdpGreska = '';
+  const [t, g] = await Promise.all([fetch('/api/sdp/tehnicari'), fetch('/api/sdp/grupe')]);
+  if (t.ok) sdpTehnicari = await t.json(); else { sdpTehnicari = null; sdpGreska = (await t.json().catch(() => ({}))).greska || 'SDP lista nije učitana.'; }
+  if (g.ok) sdpGrupe = await g.json(); else { sdpGrupe = null; sdpGreska = sdpGreska || (await g.json().catch(() => ({}))).greska || 'SDP lista nije učitana.'; }
+}
+function izborSdp(lista, id, naziv, cls, prazno) {
+  const opcije = [...(lista || [])];
+  if (id && !opcije.some(o => o.id === id)) opcije.unshift({ id, naziv: naziv || id });
+  return `<select class="${cls}" ${lista || id ? '' : 'disabled'}><option value="">${prazno}</option>` +
+    opcije.map(o => `<option value="${esc(o.id)}" ${o.id === id ? 'selected' : ''}>${esc(o.naziv)}</option>`).join('') + '</select>';
+}
+async function ucitajSektore() {
+  const lista = await fetch('/api/sektori').then(r => r.json());
+  if (!jeAdmin) {
+    $('#sektori').innerHTML = lista.map(s => `<div class="stavka" style="grid-template-columns:1fr"><span><b>${esc(s.naziv)}</b>
+        <span class="muted">${esc([s.sdpTehnicarNaziv && 'SDP nalog: ' + s.sdpTehnicarNaziv, s.sdpGrupaNaziv && 'grupa: ' + s.sdpGrupaNaziv].filter(Boolean).join(' · '))}${s.aktivan ? '' : ' · isključen'}</span></span></div>`).join('') || '<span class="muted">Nema sektora.</span>';
+    return;
+  }
+  $('#sek-dodaj').hidden = false;
+  $('#sektori').innerHTML = lista.map(s => `<div class="stavka" data-id="${s.id}">
+      <input class="s-naziv" value="${esc(s.naziv)}" aria-label="Naziv sektora">
+      ${izborSdp(sdpTehnicari, s.sdpTehnicarId, s.sdpTehnicarNaziv, 's-teh', '— SDP nalog (tehničar) —')}
+      ${izborSdp(sdpGrupe, s.sdpGrupaId, s.sdpGrupaNaziv, 's-grupa', '— SDP grupa —')}
+      <label><input type="checkbox" class="s-akt" ${s.aktivan ? 'checked' : ''}> aktivan</label>
+      <button class="s-sac">Sačuvaj</button><button class="s-del">Obriši</button></div>`).join('') +
+    (sdpGreska ? `<p class="muted" style="margin:8px 0 0">SDP liste nisu učitane: ${esc(sdpGreska)}</p>` : '');
+  document.querySelectorAll('#sektori .stavka[data-id]').forEach(red => {
+    const id = red.dataset.id;
+    const tekst = sel => { const o = red.querySelector(sel).selectedOptions[0]; return o && o.value ? o.textContent : null; };
+    red.querySelector('.s-sac').onclick = async () => {
+      if (await posalji(`/api/sektori/${id}`, 'PUT', {
+        naziv: red.querySelector('.s-naziv').value,
+        sdpTehnicarId: red.querySelector('.s-teh').value || null, sdpTehnicarNaziv: tekst('.s-teh'),
+        sdpGrupaId: red.querySelector('.s-grupa').value || null, sdpGrupaNaziv: tekst('.s-grupa'),
+        aktivan: red.querySelector('.s-akt').checked }, $('#sek-poruka'))) ucitajSektore();
+    };
+    const del = red.querySelector('.s-del');
+    del.onclick = async () => {
+      if (!del.dataset.potvrda) { del.dataset.potvrda = 1; del.textContent = 'Sigurno?'; return; }
+      if (await posalji(`/api/sektori/${id}`, 'DELETE', null, $('#sek-poruka'))) ucitajSektore();
+    };
+  });
+}
+$('#sek-btn').onclick = async () => {
+  if (await posalji('/api/sektori', 'POST', { naziv: $('#sek-naziv').value, aktivan: true }, $('#sek-poruka'))) { $('#sek-naziv').value = ''; ucitajSektore(); }
+};
+
+// ---------- Veza sa SDP-om ----------
+async function ucitajSdp() {
+  const p = await fetch('/api/sdp/postavke').then(r => r.json());
+  $('#sdp-url').value = p.url || '';
+  $('#sdp-kljuc').value = '';
+  $('#sdp-kljuc').placeholder = p.kljucPostavljen ? 'postavljen – upišite novi samo ako ga mijenjate' : 'nije postavljen';
+  $('#sdp-cert').checked = p.preskociCertifikat;
+  return p;
+}
+$('#sdp-sac').onclick = async () => {
+  if (await posalji('/api/sdp/postavke', 'PUT', { url: $('#sdp-url').value, apiKljuc: $('#sdp-kljuc').value, preskociCertifikat: $('#sdp-cert').checked }, $('#sdp-poruka'))) {
+    const p = await ucitajSdp();
+    if (p.url && p.kljucPostavljen) { await ucitajSdpListe(); ucitajSektore(); }
+  }
+};
+$('#sdp-prov').onclick = async () => {
+  $('#sdp-poruka').textContent = 'Provjeravam…';
+  const r = await fetch('/api/sdp/provjera', { method: 'POST' }).then(x => x.json()).catch(() => ({ ok: false, poruka: 'Aplikacija nije odgovorila.' }));
+  $('#sdp-poruka').innerHTML = r.ok ? `<span class="chip ok">${esc(r.poruka)}</span>` : `<span class="greska">${esc(r.poruka)}</span>`;
+};
+
 // ---------- Nosioci ----------
 async function ucitajNosioce() {
   const lista = await fetch('/api/nosioci').then(r => r.json());
@@ -150,6 +247,12 @@ $('#post-btn').onclick = async () => {
   if (!ja.registrovan) return;
   jeAdmin = ja.uloga === 'administrator';
   ucitajTipove(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
+  if (jeAdmin) {
+    $('#sdp-card').hidden = false;
+    const p = await ucitajSdp();
+    if (p.url && p.kljucPostavljen) await ucitajSdpListe();
+  }
+  ucitajSektore();
 })();
 </script>
 </body>

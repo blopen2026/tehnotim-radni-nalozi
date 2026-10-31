@@ -9,6 +9,7 @@ using Tehnotim.RadniNalozi.Magacin;
 using Tehnotim.RadniNalozi.Nalozi;
 using Tehnotim.RadniNalozi.Pdf;
 using Tehnotim.RadniNalozi.Prijava;
+using Tehnotim.RadniNalozi.Sdp;
 using Tehnotim.RadniNalozi.Sifarnici;
 using Tehnotim.RadniNalozi.Uredjaji;
 
@@ -96,6 +97,9 @@ app.MapPdf(connectionString);
 
 // Magacin rezervnih dijelova
 app.MapMagacin(connectionString);
+
+// Veza sa ServiceDesk Plus-om i sektori servisera
+app.MapSdp(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
 app.MapGet("/api/status", async () =>

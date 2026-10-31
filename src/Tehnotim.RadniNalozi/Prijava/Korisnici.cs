@@ -11,7 +11,11 @@ public record Korisnik(
     string Uloga,
     bool Aktivan,
     DateTime? ZadnjaPrijava,
-    bool NosilacNaloga);
+    bool NosilacNaloga)
+{
+    /// <summary>Sektori kojima korisnik pripada (Id-jevi iz dbo.Sektor).</summary>
+    public int[] Sektori { get; init; } = [];
+}
 
 public record KorisnikUnos(
     string KorisnickiNalog,
@@ -19,7 +23,8 @@ public record KorisnikUnos(
     string? Email,
     string Uloga,
     bool Aktivan,
-    bool NosilacNaloga = true);
+    bool NosilacNaloga = true,
+    int[]? Sektori = null);
 
 /// <summary>Rad s tabelom dbo.Korisnik.</summary>
 public class Korisnici(string connectionString)
@@ -72,7 +77,13 @@ public class Korisnici(string connectionString)
         await using var cmd = new SqlCommand($"SELECT {Kolone} FROM dbo.Korisnik ORDER BY Aktivan DESC, ImePrezime, KorisnickiNalog", conn);
         await using var r = await cmd.ExecuteReaderAsync();
         while (await r.ReadAsync()) lista.Add(Procitaj(r));
-        return lista;
+        await r.CloseAsync();
+
+        var veze = new List<(int K, int S)>();
+        await using (var cmd2 = new SqlCommand("SELECT KorisnikId, SektorId FROM dbo.KorisnikSektor", conn))
+        await using (var r2 = await cmd2.ExecuteReaderAsync())
+            while (await r2.ReadAsync()) veze.Add((r2.GetInt32(0), r2.GetInt32(1)));
+        return lista.Select(k => k with { Sektori = veze.Where(v => v.K == k.Id).Select(v => v.S).ToArray() }).ToList();
     }
 
     /// <summary>Dodaje (id = null) ili mijenja korisnika. Vraća poruku greške ili null ako je sve u redu.</summary>
@@ -98,8 +109,9 @@ public class Korisnici(string connectionString)
         }
 
         var sql = id is null
-            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, NosilacNaloga) VALUES (@nalog, @ime, @email, @uloga, @aktivan, @nosilac)"
-            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan, NosilacNaloga = @nosilac WHERE Id = @id";
+            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, NosilacNaloga) OUTPUT INSERTED.Id VALUES (@nalog, @ime, @email, @uloga, @aktivan, @nosilac)"
+            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan, NosilacNaloga = @nosilac OUTPUT INSERTED.Id WHERE Id = @id";
+        int korisnikId;
         await using (var cmd = new SqlCommand(sql, conn, tx))
         {
             cmd.Parameters.AddWithValue("@nalog", nalog);
@@ -109,7 +121,27 @@ public class Korisnici(string connectionString)
             cmd.Parameters.AddWithValue("@aktivan", u.Aktivan);
             cmd.Parameters.AddWithValue("@nosilac", u.NosilacNaloga);
             cmd.Parameters.Add("@id", SqlDbType.Int).Value = (object?)id ?? DBNull.Value;
-            await cmd.ExecuteNonQueryAsync();
+            var rez = await cmd.ExecuteScalarAsync();
+            if (rez is null) { await tx.RollbackAsync(); return "Korisnik više ne postoji."; }
+            korisnikId = (int)rez;
+        }
+
+        // Sektori (null = ne mijenjaj)
+        if (u.Sektori is not null)
+        {
+            await using (var cmd = new SqlCommand("DELETE FROM dbo.KorisnikSektor WHERE KorisnikId = @k", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@k", korisnikId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            foreach (var sid in u.Sektori.Distinct())
+            {
+                await using var cmd = new SqlCommand(
+                    "INSERT INTO dbo.KorisnikSektor (KorisnikId, SektorId) SELECT @k, Id FROM dbo.Sektor WHERE Id = @s", conn, tx);
+                cmd.Parameters.AddWithValue("@k", korisnikId);
+                cmd.Parameters.AddWithValue("@s", sid);
+                await cmd.ExecuteNonQueryAsync();
+            }
         }
 
         // Mora ostati bar jedan aktivan administrator

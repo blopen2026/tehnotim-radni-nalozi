@@ -9,6 +9,10 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - RGU šalje tikete iz svog Redmine-a: eksterni broj = broj iza `#` u naslovu (`[TEHNOTIM - Хардвер #39422]`), poslovna jedinica iz teksta („Аутор: Kalinovik PJ”), opis = tekst bez HTML-a i Redmine zaglavlja; ćirilica → latinica.
 - Ostali klijenti uglavnom šalju obične mailove – pravila za njih nakon pregleda primjera tiketa.
 - Ako se jedinica ne prepozna, bira se ručno u nacrtu.
+- **Sektori** (Tehnička, Printing, Sistem, Mreže; ostali sektori zbog licence idu na Tehničku): sektor = SDP zajednički nalog (tehničar) i/ili grupa. Korisnik može biti u više sektora.
+- Nosilac naloga iz tiketa bira se **ručno**; nude se serviseri sektora kojem je tiket dodijeljen u SDP-u (prvo tehničar, pa grupa), uz „prikaži sve”. Sektor se upisuje u nalog.
+- Poslovna jedinica: aplikacija pamti vezu requester → jedinica (prvi put predloži po imenu, korisnik potvrdi).
+- Adresa SDP-a i API ključ su u Postavke (baza), mijenja ih administrator u Šifarnicima; ključ se nikad ne šalje pregledniku.
 
 ## 2026-10-30 – Testno okruženje
 
