@@ -25,7 +25,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 
 ## Faza 2 – Veza sa ServiceDesk Plus
 
-- [ ] 13. API ključ (poseban tehničar), test poziva sa računara u mreži – uputstvo: `docs/korak-13-sdp-api.md`
+- [x] 13. (2026-10-31) API ključ (poseban tehničar), test poziva sa računara u mreži – uputstvo: `docs/korak-13-sdp-api.md`
 - [ ] 14. Tabela veza: SDP site/department → klijent + poslovna jedinica
 - [ ] 15. Čitanje novih tiketa i nacrti naloga („Novo iz tiketa”)
 - [ ] 16. Povrat u tiket: napomena s brojem naloga + PDF
