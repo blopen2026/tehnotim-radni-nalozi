@@ -89,9 +89,10 @@ async function stanjeSistema() {
   if (s.imeBaze) html += `<div class="row"><span>Baza</span><b>${esc(s.imeBaze)}</b></div>`;
   if (s.sqlServer) html += `<p class="muted">${esc(s.sqlServer)}</p>`;
   if (s.greska) html += `<p>Poruka greške (pošaljite je u razgovoru):</p><pre>${esc(s.greska)}</pre>`;
-  if (s.skripte?.length) html += '<h3 style="font-size:14px">Izvršene skripte</h3>' + s.skripte.map(k =>
-    `<div class="row"><span class="mono">${esc(k.skripta)}</span><span class="muted">${new Date(k.primijenjeno + 'Z').toLocaleString('bs-BA')}</span></div>`).join('');
-  if (s.tabele?.length) html += `<h3 style="font-size:14px">Tabele</h3><div class="muted mono">${esc(s.tabele.join(', '))}</div>`;
+  // Verzija baze = zadnja izvršena skripta (korisno poslije postavljanja nove verzije aplikacije)
+  const zadnja = s.skripte?.[s.skripte.length - 1];
+  if (zadnja) html += `<div class="row"><span>Verzija baze</span><span><span class="mono">${esc(zadnja.skripta.replace(/\.sql$/, ''))}</span>
+    <span class="muted">· ${new Date(zadnja.primijenjeno + 'Z').toLocaleDateString('bs-BA')}</span></span></div>`;
   $('#status').innerHTML = html;
   if (s.greska || s.baza !== 'povezana') $('#sistem-card details').open = true;
 }
