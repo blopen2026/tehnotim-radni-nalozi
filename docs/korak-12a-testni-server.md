@@ -63,9 +63,12 @@ Nakon instalacije, u **Server Manager → Local Server**:
 - **Computer name** → `TEST-NALOZI` (restart)
 - **Time zone** → (UTC+01:00) Sarajevo
 - **Windows Update** → instalirati sve, restart (ponavljati dok ima ažuriranja)
-- **Ethernet** → stalna IP adresa (ili rezervacija na DHCP-u) – zapišite je
+- **Ethernet** → za sada ostaviti automatsku adresu (DHCP), jer se laptop seli između kuće i firme. Trenutnu adresu vidite komandom `ipconfig`.
 
-## 6. Domena (preporučeno)
+## 6. Domena (kasnije, u firmi)
+
+Dok se radi od kuće, server ostaje u radnoj grupi (WORKGROUP) i prijava u aplikaciju ide lokalnim nalozima servera – to se podešava u koraku 12b.
+
 
 Aplikacija prijavljuje korisnike preko domenskih naloga, kao u produkciji.
 Server Manager → Local Server → **Workgroup** → *Change… → Domain* → naziv domene → restart.

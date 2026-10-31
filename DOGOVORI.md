@@ -8,6 +8,8 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - VM `TEST-NALOZI`: Windows Server 2022 (evaluation), 8 GB RAM fiksno, 4 vCPU, 120 GB, External prekidač `LAN`.
 - Na VM: SQL Server Express (naša baza), IIS + aplikacija, kopija ServiceDesk Plus 15200 (mail isključen).
 - Prije svakog većeg koraka checkpoint.
+- Testni server se za sada NE stavlja u domenu (rad od kuće): radi u radnoj grupi, prijava u aplikaciju lokalnim nalozima servera (TEST-NALOZI\ime). U domenu se može dodati kasnije u firmi.
+- IP adresa testnog servera ostaje na DHCP-u (laptop se seli između kuće i firme); pristupa se po imenu ili trenutnoj IP adresi.
 
 ## 2026-10-30 – Magacin rezervnih dijelova
 
