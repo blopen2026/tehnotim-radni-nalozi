@@ -35,7 +35,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 
 Urađeno (čeka probu na testnom serveru):
 
-- [ ] Nova početna stranica prema ulozi (serviser: samo svoji nalozi)
+- [x] (2026-10-31) Nova početna stranica prema ulozi (serviser: samo svoji nalozi)
 - [ ] Izvještaji radnih naloga (filteri, grupisanje, Excel, štampa, PDF svih naloga) – opis: `docs/izvjestaji.md`
 
 Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
