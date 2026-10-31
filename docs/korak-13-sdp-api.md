@@ -32,7 +32,7 @@ SDP koristi vlastiti (samopotpisani) certifikat, pa za ovu probu u PowerShell-u 
 (važi samo za taj prozor PowerShell-a):
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 
 $kljuc = Read-Host "API kljuc"
@@ -66,4 +66,5 @@ eksterni broj klijenta (ako je u nekom dodatnom polju) itd. To je osnova za kora
 | `401` / `authentication failed` | pogrešan ključ ili tehničar nema login |
 | `403` / `permission denied` | ulozi tehničara fali pravo na zahtjeve |
 | `Could not establish trust relationship` | nije pokrenut red `ServerCertificateValidationCallback` u istom prozoru |
+| `The underlying connection was closed: An unexpected error occurred on a send` | SDP 15200 traži TLS 1.3 – u prvom redu mora biti `Tls12 -bor Tls13` (ili koristiti `curl.exe -k`) |
 | `Unable to connect` | SDP servis ne radi ili nije na 443 |

@@ -9,6 +9,7 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - Na VM: SQL Server Express (naša baza), IIS + aplikacija, kopija ServiceDesk Plus 15200 (mail isključen).
 - Prije svakog većeg koraka checkpoint.
 - SDP kopija na testu (31.10.2026.): build 15200 SP-7, vraćen database backup 15200 iz produkcije (pri vraćanju odgovoreno „No” = testna instalacija → postavke dolaznog i odlaznog maila prazne), custom triggers isključeni, firewall blokira mail portove. Adresa: **https://TEST-NALOZI** (port 443, kao produkcija). Licenca: evaluation, ističe oko 29.11.2026. – kad istekne, tražiti od ManageEngine-a test licencu. Prilozi (fileAttachments) nisu vraćeni.
+- SDP 15200 traži TLS 1.3 → aplikacija pri pozivu SDP API-ja mora dozvoliti TLS 1.3 (i vjerovati SDP certifikatu – na testu samopotpisan). Licenca je popunjena (5 tehničara): na testu je jednom tehničaru uklonjena prijava i napravljen `Radni nalozi (API)`; za produkciju odluka kasnije (dokupiti mjesto / postojeći nalog / provjeriti kod ME da li tehničar bez prijave troši licencu).
 - Testni server se za sada NE stavlja u domenu (rad od kuće): radi u radnoj grupi, prijava u aplikaciju lokalnim nalozima servera (TEST-NALOZI\ime). U domenu se može dodati kasnije u firmi.
 - IP adresa testnog servera ostaje na DHCP-u (laptop se seli između kuće i firme); pristupa se po imenu ili trenutnoj IP adresi.
 - Produkcioni ServiceDesk Plus koristi ugrađeni PostgreSQL → i test kopija SDP-a koristi PostgreSQL (naša aplikacija ostaje na SQL Server Express).
