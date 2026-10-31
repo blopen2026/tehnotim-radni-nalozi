@@ -54,11 +54,8 @@
 
   <div id="rezultat" hidden>
     <div class="card">
-      <div class="naslov-stampe"><h1 style="margin:0">Izvještaj radnih naloga</h1></div>
-      <p class="muted" id="opis-filtera" style="margin-top:0"></p>
-      <div class="brojke" id="brojke"></div>
-    </div>
-    <div class="card">
+      <h1 style="margin:0;font-size:22px">Izvještaj radnih naloga</h1>
+      <p class="muted" id="opis-filtera" style="margin:4px 0 16px"></p>
       <h2 id="naslov-grupe">Po klijentu</h2>
       <div class="tablebox"><table>
         <thead><tr><th id="th-grupa">Klijent</th><th class="br">Naloga</th><th class="br">Završeno</th><th class="br">Za naplatu</th><th class="br">Vrijeme</th><th class="br">Km</th><th class="br">Putni (KM)</th></tr></thead>
@@ -68,7 +65,7 @@
     <div class="card">
       <h2>Nalozi</h2>
       <div class="tablebox"><table>
-        <thead><tr><th>Broj</th><th>Zahtjev / tiket klijenta</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Uređaj</th><th>Faza</th><th class="br">Vrijeme</th><th class="br">Km</th><th>Naplata</th></tr></thead>
+        <thead><tr><th>Broj</th><th style="white-space:nowrap">Zahtjev / tiket</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th style="min-width:200px">Uređaj</th><th>Faza</th><th class="br">Vrijeme</th><th>Naplata</th></tr></thead>
         <tbody id="nalozi"></tbody>
       </table></div>
     </div>
@@ -130,28 +127,23 @@ async function prikazi() {
   const z = d.zbir;
   $('#rezultat').hidden = false;
   $('#opis-filtera').textContent = opisFiltera() + (d.samoSvoji ? ' · samo moji nalozi' : '');
-  $('#brojke').innerHTML = [
-    [z.brojNaloga, 'naloga'], [z.zavrseno, 'završeno'], [z.zaNaplatu, 'za naplatu'],
-    [sati(z.minuta), 'utrošeno vrijeme' + (z.bezVremena ? ` (${z.bezVremena} bez upisanog vremena)` : '')],
-    [br(z.km, 1), 'km'], [br(z.putni, 2), 'putni troškovi (KM)']
-  ].map(([b, t]) => `<div class="brojka"><b>${b}</b><span>${t}</span></div>`).join('');
 
   $('#th-grupa').textContent = z.nazivGrupe;
   $('#naslov-grupe').textContent = 'Po: ' + z.nazivGrupe.toLowerCase();
   $('#grupe').innerHTML = d.grupe.map(g => `<tr><td>${esc(g.naziv)}</td><td class="br">${g.broj}</td><td class="br">${g.zavrseno}</td><td class="br">${g.zaNaplatu}</td>
       <td class="br">${sati(g.minuta)}${g.bezVremena ? `<div class="sitno">${g.bezVremena} bez vremena</div>` : ''}</td><td class="br">${br(g.km, 1)}</td><td class="br">${br(g.putni, 2)}</td></tr>`).join('')
     || '<tr><td colspan="7" class="muted">Nema naloga za izabrane filtere.</td></tr>';
-  $('#grupe-zbir').innerHTML = d.grupe.length > 1 ? `<tr><td>Ukupno</td><td class="br">${z.brojNaloga}</td><td class="br">${z.zavrseno}</td><td class="br">${z.zaNaplatu}</td>
+  $('#grupe-zbir').innerHTML = d.grupe.length ? `<tr><td>Ukupno${z.bezVremena ? `<div class="sitno" style="font-weight:400">${z.bezVremena} naloga bez upisanog vremena</div>` : ''}</td><td class="br">${z.brojNaloga}</td><td class="br">${z.zavrseno}</td><td class="br">${z.zaNaplatu}</td>
       <td class="br">${sati(z.minuta)}</td><td class="br">${br(z.km, 1)}</td><td class="br">${br(z.putni, 2)}</td></tr>` : '';
 
   $('#nalozi').innerHTML = d.nalozi.map(n => `<tr class="klik" data-id="${n.id}">
       <td class="mono">${esc(n.broj)}</td>
       <td>${n.pozivInterni ? `<div><span class="sitno">zahtjev</span> <span class="mono">${esc(n.pozivInterni)}</span></div>` : ''}${n.pozivEksterni ? `<div><span class="sitno">tiket klijenta</span> <b class="mono">${esc(n.pozivEksterni)}</b></div>` : ''}</td>
-      <td>${fD(n.datumIzdavanja)}</td><td>${esc(n.klijentNaziv)}<div class="sitno">${esc(n.lokacija || '')}</div></td>
-      <td>${esc(n.nosilacIme || '')}</td><td class="sitno">${esc(n.prviUredjaj || '')}</td><td>${FAZE[n.faza] || n.faza}</td>
+      <td>${fD(n.datumIzdavanja)}</td><td><b>${esc(n.klijentSkracenica || n.klijentNaziv)}</b><div class="sitno">${esc(n.lokacija || '')}</div></td>
+      <td>${esc(n.nosilacIme || '')}</td><td class="sitno" style="font-size:14px">${esc(n.prviUredjaj || '')}</td><td>${FAZE[n.faza] || n.faza}</td>
       <td class="br">${n.minuta == null ? `<span class="greska" title="${esc(n.utrosenoVrijeme || 'nije upisano')}">nema</span>` : sati(n.minuta)}</td>
-      <td class="br">${br(n.km, 1)}</td><td>${esc(n.naplata || '')}</td></tr>`).join('')
-    || '<tr><td colspan="10" class="muted">Nema naloga.</td></tr>';
+      <td>${esc(n.naplata || '')}</td></tr>`).join('')
+    || '<tr><td colspan="9" class="muted">Nema naloga.</td></tr>';
   document.querySelectorAll('#nalozi tr[data-id]').forEach(tr => tr.onclick = () => window.open(`nalog.html?id=${tr.dataset.id}`, '_blank'));
 
   $('#materijal-card').hidden = !d.materijal.length;

@@ -21,6 +21,7 @@ public class IzvjestajNalog
     public string Faza { get; set; } = "";
     public int KlijentId { get; set; }
     public string KlijentNaziv { get; set; } = "";
+    public string? KlijentSkracenica { get; set; }
     public int? PoslovnaJedinicaId { get; set; }
     public string? Lokacija { get; set; }
     public int? NosilacKorisnikId { get; set; }
@@ -152,12 +153,12 @@ public static class IzvjestajiApi
         static string? DaNe(string? x) => x is "DA" or "NE" ? x : null;
 
         var nalozi = (await c.QueryAsync<IzvjestajNalog>(@"
-            SELECT n.Id, n.Broj, n.DatumIzdavanja, n.Faza, n.KlijentId, n.KlijentNaziv, n.PoslovnaJedinicaId, n.Lokacija,
+            SELECT n.Id, n.Broj, n.DatumIzdavanja, n.Faza, n.KlijentId, n.KlijentNaziv, k.Skracenica AS KlijentSkracenica, n.PoslovnaJedinicaId, n.Lokacija,
                    n.NosilacKorisnikId, n.NosilacIme, n.PozivInterni, n.PozivEksterni, n.Naplata, n.Ugovor, n.Intervencija, n.Status,
                    n.PocetakRada, n.ZavrsetakRada, n.UtrosenoVrijeme, n.UtrosenoRucno, n.KmTamo, n.KmNazad, n.PutniIznos, n.OpisIntervencije,
                    (SELECT TOP 1 CONCAT(nu.Model, CASE WHEN nu.Model IS NOT NULL AND nu.SerijskiBroj IS NOT NULL THEN ' · ' END, nu.SerijskiBroj)
                     FROM dbo.NalogUredjaj nu WHERE nu.NalogId = n.Id ORDER BY nu.Redoslijed) AS PrviUredjaj
-            FROM dbo.Nalog n
+            FROM dbo.Nalog n LEFT JOIN dbo.Klijent k ON k.Id = n.KlijentId
             WHERE (@od IS NULL OR n.DatumIzdavanja >= @od) AND (@doD IS NULL OR n.DatumIzdavanja <= @doD)
               AND (@klijentId IS NULL OR n.KlijentId = @klijentId) AND (@jedinicaId IS NULL OR n.PoslovnaJedinicaId = @jedinicaId)
               AND (@nosilac IS NULL OR n.NosilacKorisnikId = @nosilac) AND (@sektorId IS NULL OR n.SektorId = @sektorId)
