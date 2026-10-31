@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Izvještaji – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  .brze{display:flex;gap:6px;flex-wrap:wrap}
+  .brze button{border-radius:999px;padding:5px 12px;font-size:13px}
+  .brojke{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .brojka{background:var(--sunk);border-radius:10px;padding:12px 14px}
+  .brojka b{display:block;font:700 24px/1.2 Consolas,monospace}
+  .brojka span{font-size:13px;color:var(--muted)}
+  td.br,th.br{text-align:right;white-space:nowrap}
+  td.sitno,.sitno{font-size:13px;color:var(--muted)}
+  tfoot td{font-weight:700;border-top:2px solid var(--line)}
+  .naslov-stampe{display:none}
+  @media print{
+    header,#filteri-card,.ne-stampaj{display:none !important}
+    body{background:#fff} main{max-width:none;margin:0;padding:0}
+    .card{border:0;padding:0 0 12px} .naslov-stampe{display:block}
+    tr.klik{cursor:default} .tablebox{overflow:visible}
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="card" id="filteri-card">
+    <h1>Izvještaj radnih naloga</h1>
+    <p class="muted" id="napomena-uloge"></p>
+    <div class="brze" style="margin-bottom:10px">
+      <button data-p="ovaj">Ovaj mjesec</button><button data-p="prosli">Prošli mjesec</button>
+      <button data-p="godina">Ova godina</button><button data-p="prosla">Prošla godina</button>
+    </div>
+    <div class="grid">
+      <label class="f"><span>Od</span><input type="date" id="od"></label>
+      <label class="f"><span>Do</span><input type="date" id="do"></label>
+      <label class="f"><span>Klijent</span><select id="klijent"><option value="">Svi</option></select></label>
+      <label class="f"><span>Poslovna jedinica</span><select id="jedinica" disabled><option value="">Sve</option></select></label>
+      <label class="f samo-kanc"><span>Nosilac</span><select id="nosilac"><option value="">Svi</option></select></label>
+      <label class="f samo-kanc"><span>Sektor</span><select id="sektor"><option value="">Svi</option></select></label>
+      <label class="f"><span>Faza</span><select id="faza"><option value="">Sve</option><option value="u_radu">U radu</option><option value="ceka_potpis">Čeka potpis</option><option value="zavrsen">Završen</option></select></label>
+      <label class="f"><span>Naplata</span><select id="naplata"><option value="">Sve</option><option>DA</option><option>NE</option></select></label>
+      <label class="f"><span>Ugovor</span><select id="ugovor"><option value="">Svi</option><option>DA</option><option>NE</option></select></label>
+      <label class="f"><span>Intervencija</span><select id="intervencija"><option value="">Sve</option><option>NA TERENU</option><option>SERVIS/KANCELARIJA</option></select></label>
+      <label class="f"><span>Grupiši po</span><select id="grupa"><option value="klijent">Klijentu</option><option value="jedinica">Poslovnoj jedinici</option><option value="nosilac">Nosiocu</option><option value="mjesec">Mjesecu</option></select></label>
+    </div>
+    <div class="akcije"><button class="primary" id="prikazi">Prikaži</button><button id="excel">Izvoz u Excel</button><button id="stampa">Štampaj / PDF</button><span id="poruka"></span></div>
+  </div>
+
+  <div id="rezultat" hidden>
+    <div class="card">
+      <div class="naslov-stampe"><h1 style="margin:0">Izvještaj radnih naloga</h1></div>
+      <p class="muted" id="opis-filtera" style="margin-top:0"></p>
+      <div class="brojke" id="brojke"></div>
+    </div>
+    <div class="card">
+      <h2 id="naslov-grupe">Po klijentu</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th id="th-grupa">Klijent</th><th class="br">Naloga</th><th class="br">Završeno</th><th class="br">Za naplatu</th><th class="br">Vrijeme</th><th class="br">Km</th><th class="br">Putni (KM)</th></tr></thead>
+        <tbody id="grupe"></tbody><tfoot id="grupe-zbir"></tfoot>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>Nalozi</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Uređaj</th><th>Faza</th><th class="br">Vrijeme</th><th class="br">Km</th><th>Naplata</th></tr></thead>
+        <tbody id="nalozi"></tbody>
+      </table></div>
+    </div>
+    <div class="card" id="materijal-card">
+      <h2>Utrošeni materijal</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th>Materijal</th><th>PN</th><th class="br">Količina</th><th class="br">Naloga</th></tr></thead>
+        <tbody id="materijal"></tbody>
+      </table></div>
+    </div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
+const sati = m => m == null ? '—' : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+const br = (v, d = 0) => Number(v || 0).toLocaleString('bs-BA', { minimumFractionDigits: d, maximumFractionDigits: d });
+const POLJA = ['od', 'do', 'klijent', 'jedinica', 'nosilac', 'sektor', 'faza', 'naplata', 'ugovor', 'intervencija', 'grupa'];
+const PARAM = { klijent: 'klijentId', jedinica: 'jedinicaId', nosilac: 'nosilacId', sektor: 'sektorId' };
+
+function parametri() {
+  const p = new URLSearchParams();
+  POLJA.forEach(f => { const v = $('#' + f).value; if (v) p.set(PARAM[f] || f, v); });
+  return p;
+}
+function brziPeriod(k) {
+  const d = new Date(), g = d.getFullYear(), m = d.getMonth();
+  const [od, doo] = k === 'ovaj' ? [new Date(g, m, 1), new Date(g, m + 1, 0)]
+    : k === 'prosli' ? [new Date(g, m - 1, 1), new Date(g, m, 0)]
+    : k === 'godina' ? [new Date(g, 0, 1), new Date(g, 11, 31)] : [new Date(g - 1, 0, 1), new Date(g - 1, 11, 31)];
+  $('#od').value = iso(od); $('#do').value = iso(doo);
+  prikazi();
+}
+async function ucitajJedinice() {
+  const k = $('#klijent').value;
+  $('#jedinica').innerHTML = '<option value="">Sve</option>';
+  $('#jedinica').disabled = !k;
+  if (!k) return;
+  const d = await fetch(`/api/klijenti/${k}`).then(r => r.json());
+  $('#jedinica').innerHTML += d.jedinice.map(j => `<option value="${j.id}">${esc(j.naziv)}</option>`).join('');
+}
+function opisFiltera() {
+  const t = [`Period: ${$('#od').value ? fD($('#od').value) : 'od početka'} – ${$('#do').value ? fD($('#do').value) : 'danas'}`];
+  ['klijent', 'jedinica', 'nosilac', 'sektor', 'faza', 'naplata', 'ugovor', 'intervencija'].forEach(f => {
+    const el = $('#' + f); if (el.value) t.push(`${el.closest('label').querySelector('span').textContent}: ${el.selectedOptions[0].textContent}`);
+  });
+  return t.join(' · ');
+}
+async function prikazi() {
+  $('#poruka').textContent = 'Računam…';
+  const r = await fetch('/api/izvjestaj?' + parametri());
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#poruka').innerHTML = `<span class="greska">${esc(d.greska || 'Izvještaj nije napravljen.')}</span>`; return; }
+  $('#poruka').textContent = '';
+  history.replaceState(null, '', '?' + parametri());
+  const z = d.zbir;
+  $('#rezultat').hidden = false;
+  $('#opis-filtera').textContent = opisFiltera() + (d.samoSvoji ? ' · samo moji nalozi' : '');
+  $('#brojke').innerHTML = [
+    [z.brojNaloga, 'naloga'], [z.zavrseno, 'završeno'], [z.zaNaplatu, 'za naplatu'],
+    [sati(z.minuta), 'utrošeno vrijeme' + (z.bezVremena ? ` (${z.bezVremena} bez upisanog vremena)` : '')],
+    [br(z.km, 1), 'km'], [br(z.putni, 2), 'putni troškovi (KM)']
+  ].map(([b, t]) => `<div class="brojka"><b>${b}</b><span>${t}</span></div>`).join('');
+
+  $('#th-grupa').textContent = z.nazivGrupe;
+  $('#naslov-grupe').textContent = 'Po: ' + z.nazivGrupe.toLowerCase();
+  $('#grupe').innerHTML = d.grupe.map(g => `<tr><td>${esc(g.naziv)}</td><td class="br">${g.broj}</td><td class="br">${g.zavrseno}</td><td class="br">${g.zaNaplatu}</td>
+      <td class="br">${sati(g.minuta)}${g.bezVremena ? `<div class="sitno">${g.bezVremena} bez vremena</div>` : ''}</td><td class="br">${br(g.km, 1)}</td><td class="br">${br(g.putni, 2)}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="muted">Nema naloga za izabrane filtere.</td></tr>';
+  $('#grupe-zbir').innerHTML = d.grupe.length > 1 ? `<tr><td>Ukupno</td><td class="br">${z.brojNaloga}</td><td class="br">${z.zavrseno}</td><td class="br">${z.zaNaplatu}</td>
+      <td class="br">${sati(z.minuta)}</td><td class="br">${br(z.km, 1)}</td><td class="br">${br(z.putni, 2)}</td></tr>` : '';
+
+  $('#nalozi').innerHTML = d.nalozi.map(n => `<tr class="klik" data-id="${n.id}">
+      <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="sitno">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
+      <td>${fD(n.datumIzdavanja)}</td><td>${esc(n.klijentNaziv)}<div class="sitno">${esc(n.lokacija || '')}</div></td>
+      <td>${esc(n.nosilacIme || '')}</td><td class="sitno">${esc(n.prviUredjaj || '')}</td><td>${FAZE[n.faza] || n.faza}</td>
+      <td class="br">${n.minuta == null ? `<span class="greska" title="${esc(n.utrosenoVrijeme || 'nije upisano')}">nema</span>` : sati(n.minuta)}</td>
+      <td class="br">${br(n.km, 1)}</td><td>${esc(n.naplata || '')}</td></tr>`).join('')
+    || '<tr><td colspan="9" class="muted">Nema naloga.</td></tr>';
+  document.querySelectorAll('#nalozi tr[data-id]').forEach(tr => tr.onclick = () => window.open(`nalog.html?id=${tr.dataset.id}`, '_blank'));
+
+  $('#materijal-card').hidden = !d.materijal.length;
+  $('#materijal').innerHTML = d.materijal.map(m => `<tr><td>${esc(m.naziv)}</td><td class="mono">${esc(m.pn || '')}</td><td class="br">${br(m.kolicina, m.kolicina % 1 ? 2 : 0)}</td><td class="br">${m.naloga}</td></tr>`).join('');
+}
+
+document.querySelectorAll('.brze button').forEach(b => b.onclick = () => brziPeriod(b.dataset.p));
+$('#klijent').onchange = ucitajJedinice;
+$('#prikazi').onclick = prikazi;
+$('#excel').onclick = () => { location.href = '/api/izvjestaj/excel?' + parametri(); };
+$('#stampa').onclick = async () => { if ($('#rezultat').hidden) await prikazi(); window.print(); };
+
+(async () => {
+  const ja = await ucitajZaglavlje('izvjestaji');
+  if (!ja.registrovan) return;
+  const kanc = ja.uloga !== 'serviser';
+  document.querySelectorAll('.samo-kanc').forEach(e => e.hidden = !kanc);
+  $('#napomena-uloge').textContent = kanc
+    ? 'Filtrirajte naloge po periodu, klijentu, nosiocu… Rezultat se može izvesti u Excel ili odštampati.'
+    : 'Izvještaj o vašim nalozima (nalozi kojima ste nosilac).';
+  const [klijenti, nosioci, sektori] = await Promise.all(['/api/klijenti', '/api/nosioci', '/api/sektori'].map(u => fetch(u).then(r => r.json()).catch(() => [])));
+  $('#klijent').innerHTML += klijenti.map(k => `<option value="${k.id}">${esc(k.naziv)}</option>`).join('');
+  $('#nosilac').innerHTML += nosioci.map(n => `<option value="${n.id}">${esc(n.ime)}</option>`).join('');
+  $('#sektor').innerHTML += sektori.filter(s => s.aktivan).map(s => `<option value="${s.id}">${esc(s.naziv)}</option>`).join('');
+
+  // Filteri iz adrese (ako je stranica otvorena s parametrima), inače ovaj mjesec
+  const p = new URLSearchParams(location.search);
+  if ([...p.keys()].length) {
+    POLJA.forEach(f => { const v = p.get(PARAM[f] || f); if (v && f !== 'jedinica') $('#' + f).value = v; });
+    if ($('#klijent').value) { await ucitajJedinice(); $('#jedinica').value = p.get('jedinicaId') || ''; }
+    prikazi();
+  } else brziPeriod('ovaj');
+})();
+</script>
+</body>
+</html>

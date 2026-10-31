@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
 using Tehnotim.RadniNalozi.Baza;
+using Tehnotim.RadniNalozi.Izvjestaji;
 using Tehnotim.RadniNalozi.Klijenti;
 using Tehnotim.RadniNalozi.Magacin;
 using Tehnotim.RadniNalozi.Nalozi;
@@ -105,6 +106,9 @@ app.MapTiketi(connectionString);
 
 // Početna stranica
 app.MapPocetna(connectionString);
+
+// Izvještaji
+app.MapIzvjestaji(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (samo administrator)
 app.MapGet("/api/status", async () =>

@@ -5,7 +5,7 @@ const NAZIVI_ULOGA = { serviser: 'Serviser', kancelarija: 'Kancelarija', adminis
 
 async function ucitajZaglavlje(aktivna) {
   const ja = await fetch('/api/ja').then(r => r.json());
-  const meni = [['pocetna', '/', 'Početna'], ['nalozi', '/nalozi.html', 'Nalozi'], ['novi', '/nalog.html', '+ Novi nalog'], ['tiketi', '/tiketi.html', 'Iz tiketa']];
+  const meni = [['pocetna', '/', 'Početna'], ['nalozi', '/nalozi.html', 'Nalozi'], ['novi', '/nalog.html', '+ Novi nalog'], ['tiketi', '/tiketi.html', 'Iz tiketa'], ['izvjestaji', '/izvjestaji.html', 'Izvještaji']];
   if (ja.uloga === 'kancelarija' || ja.uloga === 'administrator') {
     meni.push(['klijenti', '/klijenti.html', 'Klijenti']);
     meni.push(['uredjaji', '/uredjaji.html', 'Uređaji']);

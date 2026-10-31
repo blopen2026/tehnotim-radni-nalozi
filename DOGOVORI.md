@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-10-31 – Početna i izvještaji
+
+- Početna prema ulozi: serviser vidi samo svoje naloge (u radu, čeka potpis, posljednji) i broj tiketa svog sektora; kancelarija/administrator brojke po fazama i sve naloge; administrator i magacin i stanje sistema (sklopljeno). `/api/status` samo administrator.
+- Na stranici Nalozi serviser i dalje vidi **sve** naloge (kolega može preuzeti nalog).
+- Izvještaji: kancelarija i administrator sve, serviser samo naloge kojima je nosilac. Služe i za fakturisanje i za druge svrhe; izvoz u Excel i štampa/PDF.
+
 ## 2026-10-31 – Veza sa ServiceDesk Plus-om (faza 2)
 
 - Nalog iz tiketa se pravi **ručno**: u aplikaciji se upiše/izabere broj tiketa (uz listu otvorenih tiketa bez naloga), aplikacija popuni nacrt. Automatika (svaki novi tiket / pri dodjeli tehničara) eventualno kasnije.

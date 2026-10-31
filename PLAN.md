@@ -34,5 +34,6 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 ## Faza 3 – Dodaci po potrebi
 
 - [ ] Učitavanje ručno popunjenog naloga sa skena
+- [ ] Nova početna stranica prema ulozi (serviser: samo svoji nalozi)
 - [ ] Ovlaštene osobe klijenta / portal za potvrdu naloga
-- [ ] Izvještaji za fakturisanje
+- [ ] Izvještaji radnih naloga (filteri, grupisanje, Excel, štampa) – opis: `docs/izvjestaji.md`
