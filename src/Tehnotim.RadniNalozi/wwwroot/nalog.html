@@ -169,7 +169,7 @@ function buildForm() {
 
   ${n.id ? `<div class="sec"><div class="lab">Istorija izmjena</div><div class="body"><div id="istorija" class="muted">Učitavam…</div></div></div>` : ''}
 
-  <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><button id="print">Štampaj</button><button id="pdf">Sačuvaj PDF</button><span id="save-state"></span>
+  <div class="actions"><button class="primary" id="save">Sačuvaj nalog</button><button id="print">Štampaj</button><button id="pdf">Sačuvaj PDF</button>${n.sdpZahtjevId && (!n.sdpNapomenaOtvoren || (n.faza === 'zavrsen' && !n.sdpNapomenaZavrsen)) ? '<button id="u-tiket" title="Upis napomene (i PDF-a) u tiket nije urađen – pokušaj ponovo">Pošalji u tiket</button>' : ''}<span id="save-state"></span>
     ${n.kreirao ? `<span class="muted" style="font-size:13px">Napravio: ${esc(n.kreirao)}${n.izmijenio ? ` · zadnja izmjena: ${esc(n.izmijenio)}` : ''}</span>` : ''}
     <span style="flex:1"></span>
     ${n.id && ['kancelarija', 'administrator'].includes(window.ja?.uloga) ? '<button class="ghost" id="del">Obriši nalog</button>' : ''}</div>`;
@@ -212,6 +212,12 @@ function buildForm() {
   $('#pdf').onclick = preuzmiPdf;
   izmjene = false;
   if ($('#del')) $('#del').onclick = obrisi;
+  if ($('#u-tiket')) $('#u-tiket').onclick = async () => {
+    $('#save-state').textContent = 'Šaljem u tiket…';
+    const p = await fetch(`/api/nalozi/${nalogId}/tiket`, { method: 'POST' }).then(r => r.json()).catch(() => []);
+    await ucitajNalog();
+    $('#save-state').innerHTML = porukeTiketa(p) || '<span class="muted">Nema ništa za poslati.</span>';
+  };
   if (n.id) ucitajIstoriju();
   if (document.referrer.includes('/nalozi.html')) $('#nazad').href = document.referrer;
 
@@ -235,6 +241,10 @@ async function primijeniNacrt() {
   if ($('#tiket-napomene')) $('#tiket-napomene').innerHTML = nap.map(x => `<li>${x}</li>`).join('') || '<li class="muted">Klijent i jedinica su zapamćeni iz ranijih tiketa.</li>';
   izmjene = true;
 }
+
+// Poruke o upisu u tiket (zeleno = upisano, crveno = greška)
+const porukeTiketa = p => (p || []).length
+  ? `<ul class="upoz" style="color:inherit">${p.map(x => `<li class="${x.ok ? '' : 'greska'}" style="${x.ok ? 'color:var(--ok)' : ''}">${esc(x.poruka)}</li>`).join('')}</ul>` : '';
 
 // ---------- Nosilac (iz tiketa: samo serviseri sektora, uz „prikaži sve”) ----------
 function popuniNosioce(izabran, imeIzabranog) {
@@ -540,7 +550,8 @@ async function save() {
     popuniListe();
     await ucitajNalog();
     $('#save-state').innerHTML = `<span class="chip ok">Nalog ${esc(d.broj)} je sačuvan</span>` +
-      ((d.upozorenja || []).length ? `<ul class="upoz">${d.upozorenja.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : '');
+      ((d.upozorenja || []).length ? `<ul class="upoz">${d.upozorenja.map(u => `<li>${esc(u)}</li>`).join('')}</ul>` : '') +
+      porukeTiketa(d.tiket);
     return true;
   } finally { const bb = $('#save'); if (bb) bb.disabled = false; }
 }

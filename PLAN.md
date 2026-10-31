@@ -29,7 +29,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 14a. (2026-10-31) Veza sa SDP-om u Šifarnicima, sektori servisera (SDP nalog/grupa), sektori kod korisnika – uputstvo: `docs/korak-14a-sdp-sektori.md`
 - [ ] 14b. Tabele veza: SDP site → klijent, requester → poslovna jedinica (RGU: iz Redmine teksta) – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
 - [ ] 15. Stranica „Iz tiketa” (otvoreni tiketi bez naloga) i forma naloga popunjena iz tiketa; nosioci po sektoru – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
-- [ ] 16. Povrat u tiket: napomena s brojem naloga + PDF
+- [ ] 16. Povrat u tiket: napomena s brojem naloga + PDF – uputstvo: `docs/korak-16-povrat-u-tiket.md`
 
 ## Faza 3 – Dodaci po potrebi
 

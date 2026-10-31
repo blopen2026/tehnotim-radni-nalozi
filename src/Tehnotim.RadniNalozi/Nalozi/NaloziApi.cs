@@ -118,8 +118,13 @@ public static class NaloziApi
             return Results.Ok(rucno ?? new PrethodniBrojac());
         });
 
-        nalozi.MapPost("", (NalogUnos u, ClaimsPrincipal ko) => Sacuvaj(connectionString, null, u, ko));
-        nalozi.MapPut("/{id:int}", (int id, NalogUnos u, ClaimsPrincipal ko) => Sacuvaj(connectionString, id, u, ko));
+        nalozi.MapPost("", (NalogUnos u, ClaimsPrincipal ko, IWebHostEnvironment env) => Sacuvaj(connectionString, null, u, ko, env.WebRootPath));
+        nalozi.MapPut("/{id:int}", (int id, NalogUnos u, ClaimsPrincipal ko, IWebHostEnvironment env) => Sacuvaj(connectionString, id, u, ko, env.WebRootPath));
+
+        // Ručno ponavljanje upisa u tiket (ako automatski upis pri čuvanju nije uspio)
+        nalozi.MapPost("/{id:int}/tiket", async (int id, ClaimsPrincipal ko, IWebHostEnvironment env) =>
+            Results.Ok(await Tehnotim.RadniNalozi.Sdp.PovratUTiket.PosaljiAsync(connectionString, id, env.WebRootPath,
+                ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name)));
     }
 
     /// <summary>Nalog sa uređajima i materijalom (za formu i PDF); null ako ne postoji.</summary>
@@ -127,7 +132,7 @@ public static class NaloziApi
     {
         await using var c = new SqlConnection(connectionString);
         var n = await c.QuerySingleOrDefaultAsync<NalogDetalji>(@"
-            SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, SektorId, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
+            SELECT Id, Broj, Faza, PozivInterni, PozivEksterni, SdpZahtjevId, SektorId, SdpNapomenaOtvoren, SdpNapomenaZavrsen, DatumIzdavanja, ZahtjevVrijeme, PocetakRada, ZavrsetakRada,
                    UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                    Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
@@ -198,7 +203,7 @@ public static class NaloziApi
     private static string? DaNe(string? s) => s is "DA" or "NE" ? s : null;
     private static IResult Greska(string poruka) => Results.BadRequest(new { greska = poruka });
 
-    private static async Task<IResult> Sacuvaj(string connectionString, int? id, NalogUnos u, ClaimsPrincipal ko)
+    private static async Task<IResult> Sacuvaj(string connectionString, int? id, NalogUnos u, ClaimsPrincipal ko, string webRoot)
     {
         if (u.KlijentId <= 0) return Greska("Izaberite korisnika (klijenta) iz liste.");
         if (u.DatumIzdavanja == default) return Greska("Upišite datum izdavanja.");
@@ -429,7 +434,10 @@ public static class NaloziApi
                 new { nalogId, korisnik, opis = potpisPromjena }, tx);
 
         await tx.CommitAsync();
-        return Results.Ok(new { id = nalogId, broj, faza, upozorenja });
+
+        // Povratak u tiket (napomena pri otvaranju, napomena + PDF pri završetku) – poslije čuvanja, ne ruši ga
+        var tiket = await Tehnotim.RadniNalozi.Sdp.PovratUTiket.PosaljiAsync(connectionString, nalogId, webRoot, korisnik);
+        return Results.Ok(new { id = nalogId, broj, faza, upozorenja, tiket });
     }
 
     /// <summary>Mala pomoć: izvrši akciju nad objektom i vrati ga (za DynamicParameters).</summary>

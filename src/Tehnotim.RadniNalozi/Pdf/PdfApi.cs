@@ -18,20 +18,23 @@ public static class PdfApi
             var n = await NaloziApi.UcitajAsync(connectionString, id);
             if (n is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
 
-            await using var c = new SqlConnection(connectionString);
-            var firma = await c.QuerySingleAsync<Postavke>(
-                "SELECT TarifaKm, NazivFirme, Adresa, Email, Web, Jib, Mb, ZiroRacun FROM dbo.Postavke WHERE Id = 1");
-            var skracenica = await c.ExecuteScalarAsync<string?>("SELECT Skracenica FROM dbo.Klijent WHERE Id = @k", new { k = n.KlijentId });
-
-            var logoPutanja = Path.Combine(env.WebRootPath, "img", "logo.png");
-            var logo = File.Exists(logoPutanja) ? await File.ReadAllBytesAsync(logoPutanja) : null;
-
-            var pdf = PdfNaloga.Napravi(n, firma, logo);
-            var ime = ImeFajla(n, skracenica);
+            var (pdf, ime) = await NapraviAsync(connectionString, n, env.WebRootPath);
             http.Response.Headers.ContentDisposition =
                 $"{(preuzmi == true ? "attachment" : "inline")}; filename=\"{Ascii(ime)}\"; filename*=UTF-8''{Uri.EscapeDataString(ime)}";
             return Results.Bytes(pdf, "application/pdf");
         }).RequireAuthorization(Politike.Korisnik);
+    }
+
+    /// <summary>PDF naloga i ime fajla (za preglednik i za prilog tiketu).</summary>
+    public static async Task<(byte[] Pdf, string Ime)> NapraviAsync(string connectionString, NalogDetalji n, string webRoot)
+    {
+        await using var c = new SqlConnection(connectionString);
+        var firma = await c.QuerySingleAsync<Postavke>(
+            "SELECT TarifaKm, NazivFirme, Adresa, Email, Web, Jib, Mb, ZiroRacun FROM dbo.Postavke WHERE Id = 1");
+        var skracenica = await c.ExecuteScalarAsync<string?>("SELECT Skracenica FROM dbo.Klijent WHERE Id = @k", new { k = n.KlijentId });
+        var logoPutanja = Path.Combine(webRoot, "img", "logo.png");
+        var logo = File.Exists(logoPutanja) ? await File.ReadAllBytesAsync(logoPutanja) : null;
+        return (PdfNaloga.Napravi(n, firma, logo), ImeFajla(n, skracenica));
     }
 
     /// <summary>Skraćenica klijenta (ili naziv) + interni + eksterni broj; bez brojeva zahtjeva + broj naloga.</summary>

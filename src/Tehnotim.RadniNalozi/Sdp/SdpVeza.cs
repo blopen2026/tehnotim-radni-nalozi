@@ -32,7 +32,30 @@ public static class SdpVeza
     }
 
     /// <summary>GET prema SDP-u; vraća korijen JSON odgovora. inputData ide kao ?input_data=… (JSON).</summary>
-    public static async Task<JsonElement> GetAsync(string cs, string putanja, object? inputData = null)
+    public static Task<JsonElement> GetAsync(string cs, string putanja, object? inputData = null) =>
+        PosaljiAsync(cs, url => new HttpRequestMessage(HttpMethod.Get,
+            url + putanja + (inputData is null ? "" : "?input_data=" + Uri.EscapeDataString(JsonSerializer.Serialize(inputData)))));
+
+    /// <summary>POST s poljem input_data (JSON) kao obrazac – tako SDP v3 prima npr. napomene.</summary>
+    public static Task<JsonElement> PostAsync(string cs, string putanja, object inputData) =>
+        PosaljiAsync(cs, url => new HttpRequestMessage(HttpMethod.Post, url + putanja)
+        {
+            Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("input_data", JsonSerializer.Serialize(inputData))])
+        });
+
+    /// <summary>POST fajla (multipart) – prilog tiketu.</summary>
+    public static Task<JsonElement> PostFajlAsync(string cs, string putanja, byte[] sadrzaj, string imeFajla, string polje)
+    {
+        return PosaljiAsync(cs, url =>
+        {
+            var dio = new ByteArrayContent(sadrzaj);
+            dio.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+            var forma = new MultipartFormDataContent { { dio, polje, imeFajla } };
+            return new HttpRequestMessage(HttpMethod.Post, url + putanja) { Content = forma };
+        });
+    }
+
+    private static async Task<JsonElement> PosaljiAsync(string cs, Func<string, HttpRequestMessage> napravi)
     {
         var p = await PostavkeAsync(cs);
         if (string.IsNullOrWhiteSpace(p.SdpUrl) || string.IsNullOrWhiteSpace(p.SdpApiKljuc))
@@ -41,12 +64,9 @@ public static class SdpVeza
         using var handler = new HttpClientHandler();
         if (p.SdpPreskociCertifikat)
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-        using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+        using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
 
-        var url = p.SdpUrl.TrimEnd('/') + putanja;
-        if (inputData is not null) url += "?input_data=" + Uri.EscapeDataString(JsonSerializer.Serialize(inputData));
-
-        using var zahtjev = new HttpRequestMessage(HttpMethod.Get, url);
+        using var zahtjev = napravi(p.SdpUrl.TrimEnd('/'));
         zahtjev.Headers.TryAddWithoutValidation("authtoken", p.SdpApiKljuc);
         zahtjev.Headers.TryAddWithoutValidation("Accept", "application/vnd.manageengine.sdp.v3+json");
 
@@ -65,7 +85,7 @@ public static class SdpVeza
         }
         catch (TaskCanceledException)
         {
-            throw new SdpGreska($"ServiceDesk Plus ne odgovara (isteklo 30 s) na {p.SdpUrl}.");
+            throw new SdpGreska($"ServiceDesk Plus ne odgovara (isteklo 60 s) na {p.SdpUrl}.");
         }
 
         using (odgovor)

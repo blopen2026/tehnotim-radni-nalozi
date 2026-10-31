@@ -12,6 +12,7 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - **Sektori** (Tehnička, Printing, Sistem, Mreže; ostali sektori zbog licence idu na Tehničku): sektor = SDP zajednički nalog (tehničar) i/ili grupa. Korisnik može biti u više sektora.
 - Nosilac naloga iz tiketa bira se **ručno**; nude se serviseri sektora kojem je tiket dodijeljen u SDP-u (prvo tehničar, pa grupa), uz „prikaži sve”. Sektor se upisuje u nalog.
 - Poslovna jedinica: aplikacija pamti vezu requester → jedinica (prvi put predloži po imenu, korisnik potvrdi).
+- **Povratak u tiket:** napomena kad se nalog iz tiketa prvi put sačuva i napomena + PDF u prilogu kad nalog postane završen. Napomene vide samo tehničari; status tiketa aplikacija ne mijenja (ručno u SDP-u). Neuspio upis ne sprečava čuvanje – ponavlja se dugmetom „Pošalji u tiket”.
 - Adresa SDP-a i API ključ su u Postavke (baza), mijenja ih administrator u Šifarnicima; ključ se nikad ne šalje pregledniku.
 
 ## 2026-10-30 – Testno okruženje

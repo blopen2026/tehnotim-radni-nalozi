@@ -78,6 +78,8 @@ public class NalogDetalji
     public string? PozivEksterni { get; set; }
     public long? SdpZahtjevId { get; set; }
     public int? SektorId { get; set; }
+    public DateTime? SdpNapomenaOtvoren { get; set; }
+    public DateTime? SdpNapomenaZavrsen { get; set; }
     public DateTime DatumIzdavanja { get; set; }
     public DateTime? ZahtjevVrijeme { get; set; }
     public DateTime? PocetakRada { get; set; }
