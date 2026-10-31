@@ -5,49 +5,83 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tehnotim radni nalozi</title>
 <link rel="stylesheet" href="stil.css">
+<style>
+  .brojke{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .brojka{display:block;text-decoration:none;color:inherit;background:var(--sunk);border-radius:10px;padding:14px 16px;border:1px solid transparent}
+  .brojka:hover{border-color:var(--line);background:var(--surface)}
+  .brojka b{display:block;font:700 30px/1.1 Consolas,monospace}
+  .brojka span{font-size:13px;color:var(--muted)}
+  .brojka.warn b{color:var(--warn)} .brojka.bad b{color:var(--bad)} .brojka.ok b{color:var(--ok)}
+  details summary{cursor:pointer;font-weight:600}
+</style>
 </head>
 <body>
 <main>
   <div class="card">
-    <h1>Dobro došli</h1>
-    <p class="muted" id="pozdrav"></p>
+    <div class="akcije" style="margin-top:0">
+      <div style="flex:1"><h1 style="margin:0" id="naslov">Dobro došli</h1><p class="muted" id="pozdrav" style="margin:4px 0 0"></p></div>
+      <a href="tiketi.html"><button>Iz tiketa</button></a>
+      <a href="nalog.html"><button class="primary">+ Novi nalog</button></a>
+    </div>
+    <div class="brojke" id="brojke" style="margin-top:16px"></div>
   </div>
-  <div class="card">
-    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0">Posljednji nalozi</h2><a href="nalozi.html">Svi nalozi →</a><a href="nalog.html"><button class="primary">+ Novi nalog</button></a></div>
-    <div class="tablebox" style="margin-top:10px"><table>
-      <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Nosilac</th><th>Faza</th></tr></thead>
-      <tbody id="nalozi"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+
+  <div class="card" id="aktivni-card" hidden>
+    <h2>Moji nalozi u radu</h2>
+    <div class="tablebox"><table>
+      <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th>Uređaj</th><th>Faza</th></tr></thead>
+      <tbody id="aktivni"></tbody>
     </table></div>
   </div>
+
   <div class="card">
-    <h2>Stanje sistema</h2>
-    <div id="status">Provjeravam…</div>
+    <div class="akcije" style="margin-top:0"><h2 style="flex:1;margin:0" id="posljednji-naslov">Posljednji nalozi</h2><a href="nalozi.html" id="svi-link">Svi nalozi →</a></div>
+    <div class="tablebox" style="margin-top:10px"><table>
+      <thead><tr><th>Broj</th><th>Datum</th><th>Klijent / jedinica</th><th id="th-nosilac">Nosilac</th><th>Faza</th></tr></thead>
+      <tbody id="posljednji"><tr><td colspan="5" class="muted">Učitavam…</td></tr></tbody>
+    </table></div>
   </div>
-  <div class="card" id="tabele-card" hidden><h2>Tabele u bazi</h2><div id="tabele" class="muted mono"></div></div>
-  <div class="card" id="skripte-card" hidden><h2>Izvršene skripte</h2><div id="skripte"></div></div>
+
+  <div class="card" id="sistem-card" hidden>
+    <details>
+      <summary>Stanje sistema</summary>
+      <div id="status" style="margin-top:10px">Provjeravam…</div>
+    </details>
+  </div>
 </main>
 <script src="zaglavlje.js"></script>
 <script>
-(async () => {
-  const ja = await ucitajZaglavlje('pocetna');
-  if (!ja.registrovan) return;
+const $ = s => document.querySelector(s);
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+const BOJE = { u_radu: '', ceka_potpis: 'warn', zavrsen: 'ok', novo_iz_tiketa: '' };
+const fD = s => s.slice(0, 10).split('-').reverse().join('.') + '.';
+const chipFaze = f => `<span class="chip ${BOJE[f]}" style="${BOJE[f] ? '' : 'background:var(--sunk)'}">${FAZE[f]}</span>`;
+const brojka = (id, broj, tekst, href, klasa = '') => `<a class="brojka ${klasa}" id="${id}" href="${href}"><b>${broj}</b><span>${tekst}</span></a>`;
 
-  document.getElementById('pozdrav').innerHTML =
-    `Prijavljeni ste kao <b class="mono">${esc(ja.nalog)}</b>, uloga: <b>${NAZIVI_ULOGA[ja.uloga]}</b>.` +
-    (ja.uloga === 'administrator' && !ja.ime ? ' Upišite svoje ime u meniju Korisnici.' : '');
-
-  const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
-  const BOJE = { u_radu: '', ceka_potpis: 'warn', zavrsen: 'ok', novo_iz_tiketa: '' };
-  const nalozi = (await fetch('/api/nalozi?velicina=15').then(r => r.json())).nalozi;
-  document.getElementById('nalozi').innerHTML = nalozi.length ? nalozi.slice(0, 15).map(n => `<tr class="klik" data-id="${n.id}">
+function redovi(lista, sNosiocem) {
+  return lista.map(n => `<tr class="klik" data-id="${n.id}">
       <td class="mono">${esc(n.broj)}${n.pozivInterni ? `<div class="muted">zahtjev ${esc(n.pozivInterni)}</div>` : ''}</td>
-      <td>${n.datumIzdavanja.slice(0, 10).split('-').reverse().join('.')}.</td>
+      <td>${fD(n.datumIzdavanja)}</td>
       <td>${esc(n.klijentNaziv)}<div class="muted">${esc(n.lokacija || '')}</div></td>
-      <td>${esc(n.nosilacIme || '')}</td>
-      <td><span class="chip ${BOJE[n.faza]}" style="${BOJE[n.faza] ? '' : 'background:var(--sunk)'}">${FAZE[n.faza]}</span></td></tr>`).join('')
-    : '<tr><td colspan="5" class="muted">Još nema naloga. Kliknite „+ Novi nalog”.</td></tr>';
-  document.querySelectorAll('#nalozi tr[data-id]').forEach(tr => tr.onclick = () => location.href = `nalog.html?id=${tr.dataset.id}`);
+      <td>${sNosiocem ? esc(n.nosilacIme || '') : `<span class="muted">${esc(n.prviUredjaj || '')}${n.brojUredjaja > 1 ? ` (+${n.brojUredjaja - 1})` : ''}</span>`}</td>
+      <td>${chipFaze(n.faza)}</td></tr>`).join('');
+}
+function klikovi(sel) { document.querySelectorAll(`${sel} tr[data-id]`).forEach(tr => tr.onclick = () => location.href = `nalog.html?id=${tr.dataset.id}`); }
 
+// Broj otvorenih tiketa bez naloga (serviser: njegovog sektora) – učitava se posebno jer ide do SDP-a
+async function brojTiketa() {
+  const el = $('#b-tiketi');
+  try {
+    const r = await fetch('/api/tiketi');
+    const d = await r.json();
+    if (!r.ok) { el.querySelector('b').textContent = '—'; el.querySelector('span').textContent = 'Tiketi: ' + (d.greska || 'nisu učitani'); return; }
+    el.querySelector('b').textContent = d.tiketi.length;
+    el.querySelector('span').textContent = d.prikaziSve ? 'otvorenih tiketa bez naloga' : 'tiketa mog sektora bez naloga';
+    if (d.tiketi.length) el.classList.add('warn');
+  } catch { el.querySelector('b').textContent = '—'; }
+}
+
+async function stanjeSistema() {
   const s = await fetch('/api/status').then(r => r.json());
   const chip = (ok, t) => `<span class="chip ${ok ? 'ok' : 'bad'}">${esc(t)}</span>`;
   let html = `<div class="row"><span>Aplikacija</span>${chip(true, 'radi')}</div>`;
@@ -55,16 +89,59 @@
   if (s.imeBaze) html += `<div class="row"><span>Baza</span><b>${esc(s.imeBaze)}</b></div>`;
   if (s.sqlServer) html += `<p class="muted">${esc(s.sqlServer)}</p>`;
   if (s.greska) html += `<p>Poruka greške (pošaljite je u razgovoru):</p><pre>${esc(s.greska)}</pre>`;
-  document.getElementById('status').innerHTML = html;
+  if (s.skripte?.length) html += '<h3 style="font-size:14px">Izvršene skripte</h3>' + s.skripte.map(k =>
+    `<div class="row"><span class="mono">${esc(k.skripta)}</span><span class="muted">${new Date(k.primijenjeno + 'Z').toLocaleString('bs-BA')}</span></div>`).join('');
+  if (s.tabele?.length) html += `<h3 style="font-size:14px">Tabele</h3><div class="muted mono">${esc(s.tabele.join(', '))}</div>`;
+  $('#status').innerHTML = html;
+  if (s.greska || s.baza !== 'povezana') $('#sistem-card details').open = true;
+}
 
-  if (s.tabele?.length) {
-    document.getElementById('tabele').textContent = s.tabele.join(', ');
-    document.getElementById('tabele-card').hidden = false;
+(async () => {
+  const ja = await ucitajZaglavlje('pocetna');
+  if (!ja.registrovan) return;
+  $('#naslov').textContent = ja.ime ? `Dobro došli, ${ja.ime.split(' ')[0]}` : 'Dobro došli';
+  $('#pozdrav').innerHTML = `Prijavljeni ste kao <b class="mono">${esc(ja.nalog)}</b> · ${NAZIVI_ULOGA[ja.uloga]}` +
+    (ja.uloga === 'administrator' && !ja.ime ? ' · upišite svoje ime u meniju Korisnici.' : '');
+
+  const d = await fetch('/api/pocetna').then(r => r.json());
+  const serviser = d.uloga === 'serviser';
+  let b = '';
+  if (serviser) {
+    const uRadu = d.aktivni.filter(n => n.faza !== 'ceka_potpis').length, cekaju = d.aktivni.length - uRadu;
+    b += brojka('b-urad', uRadu, 'mojih naloga u radu', `nalozi.html?nosilacId=${d.korisnikId}&faza=u_radu`);
+    b += brojka('b-potpis', cekaju, 'mojih naloga čeka potpis', `nalozi.html?nosilacId=${d.korisnikId}&faza=ceka_potpis`, cekaju ? 'warn' : '');
+  } else {
+    b += brojka('b-urad', d.poFazama.uRadu, 'naloga u radu', 'nalozi.html?faza=u_radu');
+    b += brojka('b-potpis', d.poFazama.cekaPotpis, 'naloga čeka potpis', 'nalozi.html?faza=ceka_potpis', d.poFazama.cekaPotpis ? 'warn' : '');
+    b += brojka('b-zavrseno', d.poFazama.zavrsenoMjesec, 'završeno ovaj mjesec', 'nalozi.html?faza=zavrsen', 'ok');
   }
-  if (s.skripte?.length) {
-    document.getElementById('skripte').innerHTML = s.skripte.map(k =>
-      `<div class="row"><span class="mono">${esc(k.skripta)}</span><span class="muted">${new Date(k.primijenjeno + 'Z').toLocaleString('bs-BA')}</span></div>`).join('');
-    document.getElementById('skripte-card').hidden = false;
+  b += brojka('b-tiketi', '…', 'tiketi bez naloga', 'tiketi.html');
+  if (ja.uloga === 'administrator') b += brojka('b-magacin', '…', 'magacin', 'magacin.html');
+  $('#brojke').innerHTML = b;
+  brojTiketa();
+
+  if (serviser) {
+    $('#aktivni-card').hidden = false;
+    $('#aktivni').innerHTML = d.aktivni.length ? redovi(d.aktivni, false) : '<tr><td colspan="5" class="muted">Nemate naloga u radu.</td></tr>';
+    klikovi('#aktivni');
+    $('#posljednji-naslov').textContent = 'Moji posljednji nalozi';
+    $('#th-nosilac').textContent = 'Uređaj';
+    $('#svi-link').href = `nalozi.html?nosilacId=${d.korisnikId}`;
+    $('#svi-link').textContent = 'Svi moji nalozi →';
+  }
+  $('#posljednji').innerHTML = d.posljednji.length ? redovi(d.posljednji, !serviser)
+    : '<tr><td colspan="5" class="muted">Još nema naloga. Kliknite „+ Novi nalog” ili „Iz tiketa”.</td></tr>';
+  klikovi('#posljednji');
+
+  if (ja.uloga === 'administrator') {
+    fetch('/api/magacin/sazetak').then(r => r.json()).then(m => {
+      const el = $('#b-magacin'), problem = m.uMinusu + m.ispodMinimuma + m.vanMagacina;
+      el.querySelector('b').textContent = problem;
+      el.querySelector('span').textContent = problem ? `magacin: u minusu ${m.uMinusu}, ispod min. ${m.ispodMinimuma}, van magacina ${m.vanMagacina}` : 'magacin: sve u redu';
+      el.classList.add(m.uMinusu ? 'bad' : problem ? 'warn' : 'ok');
+    }).catch(() => {});
+    $('#sistem-card').hidden = false;
+    stanjeSistema();
   }
 })();
 </script>

@@ -8,6 +8,7 @@ using Tehnotim.RadniNalozi.Klijenti;
 using Tehnotim.RadniNalozi.Magacin;
 using Tehnotim.RadniNalozi.Nalozi;
 using Tehnotim.RadniNalozi.Pdf;
+using Tehnotim.RadniNalozi.Pocetna;
 using Tehnotim.RadniNalozi.Prijava;
 using Tehnotim.RadniNalozi.Sdp;
 using Tehnotim.RadniNalozi.Sifarnici;
@@ -102,7 +103,10 @@ app.MapMagacin(connectionString);
 app.MapSdp(connectionString);
 app.MapTiketi(connectionString);
 
-// Stanje sistema: baza, tabele, skripte (svaki upisan korisnik)
+// Početna stranica
+app.MapPocetna(connectionString);
+
+// Stanje sistema: baza, tabele, skripte (samo administrator)
 app.MapGet("/api/status", async () =>
 {
     try
@@ -155,6 +159,6 @@ app.MapGet("/api/status", async () =>
             greska = greskaPriPripremi ?? ex.Message
         });
     }
-}).RequireAuthorization(Politike.Korisnik);
+}).RequireAuthorization(Politike.Administrator);
 
 app.Run();
