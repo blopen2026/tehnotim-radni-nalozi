@@ -19,7 +19,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 10b. Magacin rezervnih dijelova – uputstvo: `docs/korak-10b-magacin.md` (2026-10-30)
 - [x] 11. Prenos podataka iz probne verzije – nije potreban: probna verzija je imala samo jednog klijenta (već uvezen iz Excela) i jedan probni nalog (2026-10-30)
 - [ ] 12a. Testni server: virtuelna mašina (Hyper-V) s Windows Server 2022 – uputstvo: `docs/korak-12a-testni-server.md`
-- [ ] 12b. Testni server: SQL Server Express, IIS i aplikacija Radni nalozi
+- [ ] 12b. Testni server: SQL Server Express, IIS i aplikacija Radni nalozi – uputstvo: `docs/korak-12b-aplikacija-na-testnom-serveru.md`
 - [ ] 12c. Testni server: kopija ServiceDesk Plus 15200 (isključen mail)
 - [ ] 12d. Instalacija na produkcioni server (IIS), HTTPS, rezervne kopije
 
