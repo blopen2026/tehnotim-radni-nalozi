@@ -11,6 +11,7 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - Testni server se za sada NE stavlja u domenu (rad od kuće): radi u radnoj grupi, prijava u aplikaciju lokalnim nalozima servera (TEST-NALOZI\ime). U domenu se može dodati kasnije u firmi.
 - IP adresa testnog servera ostaje na DHCP-u (laptop se seli između kuće i firme); pristupa se po imenu ili trenutnoj IP adresi.
 - Produkcioni ServiceDesk Plus koristi ugrađeni PostgreSQL → i test kopija SDP-a koristi PostgreSQL (naša aplikacija ostaje na SQL Server Express).
+- Produkcioni SDP šalje/prima mail preko običnog mail servera (SMTP/POP/IMAP) → na testnom serveru se firewallom blokiraju portovi 25, 465, 587, 110, 995, 143, 993 prije prvog pokretanja kopije.
 - Aplikacija na serveru: IIS, sajt i pool `RadniNalozi` (No Managed Code), folder `C:\inetpub\RadniNalozi`, port 80, Windows prijava, bez anonimnog pristupa.
   Na SQL se spaja kao `IIS APPPOOL\RadniNalozi` (dbcreator – sama pravi bazu). Paket se pravi sa `objavi.cmd`.
 
