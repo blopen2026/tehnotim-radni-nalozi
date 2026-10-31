@@ -27,9 +27,9 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 
 - [x] 13. (2026-10-31) API ključ (poseban tehničar), test poziva sa računara u mreži – uputstvo: `docs/korak-13-sdp-api.md`
 - [x] 14a. (2026-10-31) Veza sa SDP-om u Šifarnicima, sektori servisera (SDP nalog/grupa), sektori kod korisnika – uputstvo: `docs/korak-14a-sdp-sektori.md`
-- [ ] 14b. Tabele veza: SDP site → klijent, requester → poslovna jedinica (RGU: iz Redmine teksta) – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
-- [ ] 15. Stranica „Iz tiketa” (otvoreni tiketi bez naloga) i forma naloga popunjena iz tiketa; nosioci po sektoru – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
-- [ ] 16. Povrat u tiket: napomena s brojem naloga + PDF – uputstvo: `docs/korak-16-povrat-u-tiket.md`
+- [x] 14b. (2026-10-31) Tabele veza: SDP site → klijent, requester → poslovna jedinica (RGU: iz Redmine teksta) – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
+- [x] 15. (2026-10-31) Stranica „Iz tiketa” (otvoreni tiketi bez naloga) i forma naloga popunjena iz tiketa; nosioci po sektoru – uputstvo: `docs/korak-15-nalog-iz-tiketa.md`
+- [x] 16. (2026-10-31) Povrat u tiket: napomena s brojem naloga + PDF – uputstvo: `docs/korak-16-povrat-u-tiket.md`
 
 ## Faza 3 – Dodaci po potrebi
 
