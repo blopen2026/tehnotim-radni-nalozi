@@ -39,6 +39,10 @@ Provjera: u Edge-u na serveru otvorite `http://localhost` → plava stranica *II
 iisreset
 ```
 
+> Hosting Bundle se instalira **poslije** IIS-a (tačka 2). Ako je instaliran prije, pokrenite njegovu instalaciju ponovo → **Repair**, pa `iisreset`.
+>
+> Provjera: `Get-WebGlobalModule -Name AspNetCoreModuleV2` mora vratiti red s putanjom do `aspnetcorev2.dll`.
+
 ## 4. Napraviti paket aplikacije (na laptopu)
 
 U folderu projekta na laptopu:
@@ -130,7 +134,7 @@ Sve radi → checkpoint `03 aplikacija radi`.
 
 | Šta se vidi | Šta uraditi |
 |---|---|
-| *HTTP Error 500.19* | Hosting Bundle nije instaliran ili nije urađen `iisreset` (tačka 3). |
+| *The data is invalid (0x8007000D)* kod `Set-WebConfigurationProperty`, ili *HTTP Error 500.19* | Hosting Bundle nije instaliran ili nije urađen `iisreset` (tačka 3). |
 | *HTTP Error 500.30 / 500.31* | Aplikacija ne može da se pokrene – vidi ispod (dnevnik). |
 | Stalno traži lozinku | Korisničko ime upisati kao `TEST-NALOZI\ime`; provjeriti tačku 6 (Windows prijava uključena). |
 | *Stanje sistema* crveno / greška baze | Tačka 7 (pravo na SQL) ili SQL servis ne radi (tačka 1). |
