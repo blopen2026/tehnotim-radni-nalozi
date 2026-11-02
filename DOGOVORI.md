@@ -2,6 +2,13 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-11-02 – Uvoz uređaja
+
+- Uvoz uređaja iz Excela (popis osnovnih sredstava klijenta). Uvoze se: računari, laptopi, monitori, štampači, multifunkcijski, kopir, skeneri i **UPS**; serveri, mrežna oprema, telefoni, softver ne.
+- Ne čuvaju se: lokacija u zgradi (prostorija), radnik koji duži uređaj, datum nabavke, vrijednosti.
+- Serijski broj nije obavezan; uređaj se prepoznaje po serijskom broju ili po inventurnom broju kod istog klijenta. Ponovni uvoz ažurira, ne duplira.
+- RGU „Uprava” → Sjedište uprave; da li je „Uprava Borik” posebna jedinica – nije odlučeno.
+
 ## 2026-10-31 – Početna i izvještaji
 
 - Početna prema ulozi: serviser vidi samo svoje naloge (u radu, čeka potpis, posljednji) i broj tiketa svog sektora; kancelarija/administrator brojke po fazama i sve naloge; administrator i magacin i stanje sistema (sklopljeno). `/api/status` samo administrator.

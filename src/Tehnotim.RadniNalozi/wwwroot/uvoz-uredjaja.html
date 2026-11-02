@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uvoz uređaja – Tehnotim radni nalozi</title>
+<link rel="stylesheet" href="stil.css">
+<style>
+  main{max-width:1080px}
+  .prev{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .prev td{font-size:13px}
+  td.br,th.br{text-align:right}
+  .sitno{font-size:13px;color:var(--muted)}
+  .brojke{display:flex;gap:8px;flex-wrap:wrap}
+  .brojke span{background:var(--sunk);border-radius:999px;padding:4px 12px;font-size:13px}
+  #jed td select{min-width:240px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <p class="muted" style="margin:0 0 8px"><a href="uredjaji.html">← Uređaji</a></p>
+    <h1>Uvoz uređaja iz Excela</h1>
+    <p class="muted">Npr. popis osnovnih sredstava klijenta. Uvoze se računari, laptopi, monitori, štampači, multifunkcijski uređaji, kopir aparati,
+      skeneri i UPS-ovi – tip se prepoznaje po prvoj riječi naziva; ostalo (softver, telefoni, mrežna oprema, serveri…) se preskače.
+      Uređaj koji već postoji (isti serijski broj, ili isti inventurni broj kod klijenta) se ažurira – ništa se ne duplira.</p>
+    <div class="grid">
+      <label class="f"><span>Klijent</span><select id="klijent"><option value="">— izaberite —</option></select></label>
+      <label class="f"><span>Excel (.xlsx) ili CSV fajl</span><input id="fajl" type="file" accept=".xlsx,.xlsm,.csv,.txt"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="lat" checked style="width:auto"> Ćirilicu pretvori u latinicu</label>
+    <p id="status" class="muted"></p>
+  </div>
+
+  <div class="card" id="mapa-card" hidden>
+    <h2>Kolone</h2>
+    <div class="grid" id="mapa"></div>
+  </div>
+
+  <div class="card" id="jed-card" hidden>
+    <h2>Poslovne jedinice</h2>
+    <p class="muted">Za svaki naziv iz tabele izaberite poslovnu jedinicu klijenta. Prepoznate su već izabrane; provjerite one označene žuto.</p>
+    <div class="prev"><table><thead><tr><th>U tabeli</th><th class="br">Uređaja</th><th>Poslovna jedinica</th></tr></thead><tbody id="jed"></tbody></table></div>
+  </div>
+
+  <div class="card" id="prev-card" hidden>
+    <h2>Pregled</h2>
+    <div class="brojke" id="brojke"></div>
+    <div class="prev" style="margin-top:10px"><table>
+      <thead><tr><th>Inventurni</th><th>Serijski</th><th>Tip</th><th>Model</th><th>Poslovna jedinica</th></tr></thead>
+      <tbody id="prev"></tbody></table></div>
+    <details style="margin-top:10px"><summary class="muted">Preskočeni nazivi (nije prepoznat tip)</summary><div id="preskoceni" class="sitno" style="margin-top:6px"></div></details>
+    <div class="akcije"><button class="primary" id="uvezi">Uvezi</button><span id="poruka"></span></div>
+  </div>
+</main>
+<script src="zaglavlje.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const CYR = {'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Ђ':'Đ','Е':'E','Ж':'Ž','З':'Z','И':'I','Ј':'J','К':'K','Л':'L','Љ':'Lj','М':'M','Н':'N','Њ':'Nj','О':'O','П':'P','Р':'R','С':'S','Т':'T','Ћ':'Ć','У':'U','Ф':'F','Х':'H','Ц':'C','Ч':'Č','Џ':'Dž','Ш':'Š'};
+Object.keys(CYR).forEach(c => CYR[c.toLowerCase()] = CYR[c].toLowerCase());
+const lat = s => String(s ?? '').replace(/[Ѐ-ӿ]/g, c => CYR[c] ?? c);
+const norm = s => lat(s).trim().toLowerCase();
+const bezKvacica = s => norm(s).replace(/[čć]/g, 'c').replace(/š/g, 's').replace(/ž/g, 'z').replace(/đ/g, 'dj');
+
+// Kolone i riječi po kojima se prepoznaju (redoslijed je bitan: jedinica prije naziva)
+const POLJA = [
+  ['inventurni', 'Inventurni broj', ['inventur', 'inv.', 'inv br']],
+  ['serijski', 'Serijski broj', ['serijsk', 'serial', 's/n']],
+  ['jedinica', 'Poslovna jedinica', ['organizac', 'jedinic', 'poslovnic', 'filijal']],
+  ['naziv', 'Naziv / model', ['osnovnog sredstva', 'model', 'naziv', 'opis']],
+  ['tip', 'Tip (ako postoji kolona)', ['vrsta', 'tip ']]
+];
+// Tip po početku naziva → naziv tipa u aplikaciji
+const PRAVILA = [
+  [/^(stampac|kopir|fotokopir)\s*\/|^multifunk/, 'multifunkcijski uređaj'],
+  [/^(foto)?kopir/, 'fotokopir aparat'],
+  [/^(stampac|printer)/, 'štampač'],
+  [/^(skener|scanner)/, 'skener'],
+  [/^(laptop|notebook)/, 'laptop'],
+  [/^monitor/, 'monitor'],
+  [/^racunar(?!\s*-\s*server|-server)/, 'računar'],
+  [/^ups\b/, 'ups']
+];
+
+let klijenti = [], tipovi = [], jedinice = [], redovi = [], zaglavljeRed = 0, mapa = {}, izborJed = {}, pripremljeno = [], preskoceni = [];
+
+function prepoznajKolone(zag) {
+  const m = {}, zauzete = new Set();
+  POLJA.forEach(([polje, , rijeci]) => {
+    const i = zag.findIndex((h, ix) => !zauzete.has(ix) && rijeci.some(r => norm(h).includes(r)));
+    if (i >= 0) { m[polje] = i; zauzete.add(i); }
+  });
+  return m;
+}
+const nadjiZaglavlje = rr => { let b = 0, max = -1; rr.slice(0, 15).forEach((r, i) => { const n = Object.keys(prepoznajKolone(r)).length; if (n > max) { max = n; b = i; } }); return b; };
+const tipPoNazivu = n => tipovi.find(t => norm(t.naziv) === n);
+function prepoznajTip(tekst) {
+  const t = bezKvacica(tekst);
+  for (const [re, ime] of PRAVILA) if (re.test(t)) return tipPoNazivu(ime) || null;
+  return null;
+}
+// Jedinica po nazivu iz tabele: tačno (bez PJ/PK) ili „Uprava” → sjedište; djelimično = prijedlog (žuto)
+function prepoznajJedinicu(naziv) {
+  const n = bezKvacica(naziv).replace(/^(pj|pk|ps)\.?\s+/, '');
+  if (!n) return { id: '', sigurno: false };
+  const kand = jedinice.map(j => ({ j, k: bezKvacica(j.naziv).replace(/^(pj|pk|ps)\.?\s+/, '') }));
+  const tacno = kand.find(x => x.k === n);
+  if (tacno) return { id: String(tacno.j.id), sigurno: true };
+  if (n === 'uprava') { const s = kand.find(x => /sjedist|sediste|uprav/.test(x.k)); if (s) return { id: String(s.j.id), sigurno: true }; }
+  const dio = kand.find(x => n.startsWith(x.k + ' ') || x.k.startsWith(n + ' '));
+  return dio ? { id: String(dio.j.id), sigurno: false } : { id: '', sigurno: false };
+}
+
+function prikaziMapu() {
+  const zag = redovi[zaglavljeRed] || [];
+  $('#mapa').innerHTML = POLJA.map(([polje, naziv]) => `<label class="f"><span>${naziv}</span><select data-polje="${polje}">
+      <option value="">— nema —</option>${zag.map((h, i) => `<option value="${i}" ${mapa[polje] === i ? 'selected' : ''}>${esc(h || 'kolona ' + (i + 1))}</option>`).join('')}</select></label>`).join('');
+  document.querySelectorAll('#mapa select').forEach(s => s.onchange = () => { mapa[s.dataset.polje] = s.value === '' ? undefined : +s.value; izborJed = {}; prikazi(); });
+  $('#mapa-card').hidden = false;
+}
+const uzmi = (r, polje) => mapa[polje] != null ? String(r[mapa[polje]] ?? '').trim() : '';
+const konv = s => $('#lat').checked ? lat(s) : s;
+
+function prikaziJedinice() {
+  const brojac = {};
+  redovi.slice(zaglavljeRed + 1).forEach(r => { const n = konv(uzmi(r, 'jedinica')); if (n) brojac[n] = (brojac[n] || 0) + 1; });
+  const nazivi = Object.keys(brojac).sort((a, b) => brojac[b] - brojac[a]);
+  nazivi.forEach(n => { if (!(n in izborJed)) { const p = prepoznajJedinicu(n); izborJed[n] = p; } });
+  $('#jed').innerHTML = nazivi.map(n => {
+    const p = izborJed[n];
+    return `<tr style="${p.id && !p.sigurno ? 'background:var(--warn-bg)' : !p.id ? 'background:var(--bad-bg)' : ''}"><td>${esc(n)}</td><td class="br">${brojac[n]}</td>
+      <td><select data-naziv="${esc(n)}"><option value="">— bez poslovne jedinice —</option><option value="-1" ${p.id === '-1' ? 'selected' : ''}>— ne uvozi —</option>
+      ${jedinice.map(j => `<option value="${j.id}" ${String(j.id) === p.id ? 'selected' : ''}>${esc(j.naziv)}</option>`).join('')}</select></td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="muted">Kolona sa poslovnom jedinicom nije izabrana.</td></tr>';
+  document.querySelectorAll('#jed select').forEach(s => s.onchange = () => { izborJed[s.dataset.naziv] = { id: s.value, sigurno: true }; prikazi(); });
+  $('#jed-card').hidden = false;
+}
+
+function pripremi() {
+  pripremljeno = []; const prDict = {};
+  redovi.slice(zaglavljeRed + 1).forEach(r => {
+    const inv = uzmi(r, 'inventurni'), ser = uzmi(r, 'serijski'), naziv = konv(uzmi(r, 'naziv'));
+    if (!inv && !ser) return;
+    const tip = prepoznajTip(mapa.tip != null && uzmi(r, 'tip') ? konv(uzmi(r, 'tip')) : naziv);
+    if (!tip) { if (naziv) prDict[naziv] = (prDict[naziv] || 0) + 1; return; }
+    const jn = konv(uzmi(r, 'jedinica')), jid = jn ? izborJed[jn]?.id : '';
+    if (jid === '-1') return;
+    const rijeci = naziv.split(/\s+/);
+    const model = (mapa.tip == null && rijeci.length > 1 ? rijeci.slice(1).join(' ') : naziv).replace(/^[-–:\s]+/, '').trim();
+    pripremljeno.push({ inventurniBroj: inv || null, serijskiBroj: ser || null, model: model || naziv || null, tipUredjajaId: tip.id, tipNaziv: tip.naziv,
+                        poslovnaJedinicaId: jid ? +jid : null, jedinicaNaziv: jid ? jedinice.find(j => j.id == jid)?.naziv : '' });
+  });
+  preskoceni = Object.entries(prDict).sort((a, b) => b[1] - a[1]);
+}
+
+function prikazi() {
+  if (!redovi.length) return;
+  prikaziMapu(); prikaziJedinice(); pripremi();
+  const poTipu = {}; pripremljeno.forEach(p => poTipu[p.tipNaziv] = (poTipu[p.tipNaziv] || 0) + 1);
+  const bezJed = pripremljeno.filter(p => !p.poslovnaJedinicaId).length;
+  $('#brojke').innerHTML = `<span><b>${pripremljeno.length}</b> za uvoz</span>` + Object.entries(poTipu).map(([t, n]) => `<span>${esc(t)}: ${n}</span>`).join('')
+    + `<span>preskočeno (tip): ${preskoceni.reduce((s, x) => s + x[1], 0)}</span>` + (bezJed ? `<span style="background:var(--warn-bg)">bez jedinice: ${bezJed}</span>` : '');
+  $('#prev').innerHTML = pripremljeno.slice(0, 300).map(p => `<tr><td class="mono">${esc(p.inventurniBroj || '')}</td><td class="mono">${esc(p.serijskiBroj || '')}</td>
+      <td>${esc(p.tipNaziv)}</td><td>${esc(p.model || '')}</td><td>${esc(p.jedinicaNaziv || '')}</td></tr>`).join('')
+    + (pripremljeno.length > 300 ? `<tr><td colspan="5" class="muted">… i još ${pripremljeno.length - 300}</td></tr>` : '');
+  $('#preskoceni').innerHTML = preskoceni.slice(0, 200).map(([n, k]) => `${esc(n)} <span class="muted">(${k})</span>`).join(' · ') || 'Nema.';
+  $('#uvezi').disabled = !pripremljeno.length || !$('#klijent').value;
+  $('#uvezi').textContent = pripremljeno.length ? `Uvezi ${pripremljeno.length} uređaja` : 'Uvezi';
+  $('#prev-card').hidden = false;
+}
+
+async function ucitajJedinice() {
+  const k = $('#klijent').value;
+  jedinice = k ? (await fetch(`/api/klijenti/${k}`).then(r => r.json())).jedinice : [];
+  izborJed = {};
+  $('#status').textContent = k ? `Klijent ima ${jedinice.length} poslovnih jedinica.` : 'Izaberite klijenta.';
+  prikazi();
+}
+
+$('#klijent').onchange = ucitajJedinice;
+$('#lat').onchange = () => { izborJed = {}; prikazi(); };
+$('#fajl').onchange = async () => {
+  const f = $('#fajl').files[0]; if (!f) return;
+  $('#status').textContent = 'Čitam fajl…';
+  const fd = new FormData(); fd.append('fajl', f);
+  const r = await fetch('/api/uvoz/procitaj', { method: 'POST', body: fd });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#status').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : d.greska || 'Fajl nije pročitan.')}</span>`; return; }
+  redovi = d.redovi; zaglavljeRed = nadjiZaglavlje(redovi); mapa = prepoznajKolone(redovi[zaglavljeRed] || []); izborJed = {};
+  $('#status').textContent = `Pročitano ${redovi.length - zaglavljeRed - 1} redova.` + ($('#klijent').value ? '' : ' Izaberite klijenta.');
+  prikazi();
+};
+$('#uvezi').onclick = async () => {
+  if (!$('#klijent').value) { $('#poruka').innerHTML = '<span class="greska">Izaberite klijenta.</span>'; return; }
+  $('#uvezi').disabled = true; $('#uvezi').textContent = 'Uvozim… (može potrajati)';
+  const r = await fetch('/api/uredjaji/uvoz', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ klijentId: +$('#klijent').value, redovi: pripremljeno.map(({ tipNaziv, jedinicaNaziv, ...p }) => p) }) });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { $('#poruka').innerHTML = `<span class="chip ok">Uvezeno: ${d.novih} novih, ${d.azuriranih} ažurirano</span> <a href="uredjaji.html">Uređaji →</a>`; $('#uvezi').textContent = 'Uvezeno'; }
+  else { $('#poruka').innerHTML = `<span class="greska">${esc(r.status === 403 ? 'Za ovo nemate pravo.' : d.greska || 'Uvoz nije uspio.')}</span>`; $('#uvezi').disabled = false; $('#uvezi').textContent = 'Uvezi'; }
+};
+
+(async () => {
+  const ja = await ucitajZaglavlje('uredjaji');
+  if (!ja.registrovan) return;
+  [klijenti, tipovi] = await Promise.all(['/api/klijenti', '/api/tipovi'].map(u => fetch(u).then(r => r.json())));
+  $('#klijent').innerHTML += klijenti.map(k => `<option value="${k.id}">${esc(k.naziv)}</option>`).join('');
+  if (!tipPoNazivu('ups')) $('#status').textContent = 'Napomena: tip „UPS” još nije u šifarniku – pokrenite novu verziju aplikacije (skripta 009).';
+})();
+</script>
+</body>
+</html>

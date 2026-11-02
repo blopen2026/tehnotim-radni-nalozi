@@ -7,7 +7,7 @@ namespace Tehnotim.RadniNalozi.Uredjaji;
 public class UredjajPregled
 {
     public int Id { get; set; }
-    public string SerijskiBroj { get; set; } = "";
+    public string? SerijskiBroj { get; set; }
     public string? InventurniBroj { get; set; }
     public string? Model { get; set; }
     public int? TipUredjajaId { get; set; }
@@ -27,7 +27,7 @@ public class UredjajPregled
 
 public class UredjajUnos
 {
-    public string SerijskiBroj { get; set; } = "";
+    public string? SerijskiBroj { get; set; }
     public string? InventurniBroj { get; set; }
     public string? Model { get; set; }
     public int? TipUredjajaId { get; set; }
@@ -38,6 +38,21 @@ public class UredjajUnos
     public int? ZadnjiKolor { get; set; }
     public int? ZadnjiCB { get; set; }
     public DateTime? BrojacDatum { get; set; }
+}
+
+public class UvozUredjaja
+{
+    public int KlijentId { get; set; }
+    public List<UvozUredjajaRed>? Redovi { get; set; }
+}
+
+public class UvozUredjajaRed
+{
+    public string? SerijskiBroj { get; set; }
+    public string? InventurniBroj { get; set; }
+    public string? Model { get; set; }
+    public int? TipUredjajaId { get; set; }
+    public int? PoslovnaJedinicaId { get; set; }
 }
 
 public class ModelTip
@@ -83,13 +98,14 @@ public static class UredjajiApi
         });
 
         // Tačan pogodak po serijskom ili inventurnom broju (za formu naloga)
-        uredjaji.MapGet("/po-broju", async (string broj) =>
+        // Inventurni brojevi se mogu ponavljati kod različitih klijenata – ako je klijent poznat, prednost ima njegov uređaj
+        uredjaji.MapGet("/po-broju", async (string broj, int? klijentId) =>
         {
             if (string.IsNullOrWhiteSpace(broj)) return Results.NotFound();
             await using var c = Veza();
             var u = await c.QueryFirstOrDefaultAsync<UredjajPregled>(PregledSql + @"
-                WHERE u.SerijskiBroj = @broj OR u.InventurniBroj = @broj
-                ORDER BY CASE WHEN u.SerijskiBroj = @broj THEN 0 ELSE 1 END", new { broj = broj.Trim() });
+                WHERE u.SerijskiBroj = @broj OR (u.InventurniBroj = @broj AND (@klijentId IS NULL OR u.KlijentId = @klijentId OR u.KlijentId IS NULL))
+                ORDER BY CASE WHEN u.SerijskiBroj = @broj THEN 0 WHEN u.KlijentId = @klijentId THEN 1 ELSE 2 END", new { broj = broj.Trim(), klijentId });
             return u is null ? Results.NotFound() : Results.Ok(u);
         });
 
@@ -126,7 +142,7 @@ public static class UredjajiApi
         uredjaji.MapPost("", async (UredjajUnos u) =>
         {
             await using var c = Veza();
-            var g = await Provjeri(c, u); if (g is not null) return Greska(g);
+            var g = await Provjeri(c, u) ?? await DuplikatInventurnog(c, u, null); if (g is not null) return Greska(g);
             return await Izvrsi(async () =>
             {
                 var id = await c.ExecuteScalarAsync<int>(@"
@@ -142,7 +158,7 @@ public static class UredjajiApi
         uredjaji.MapPut("/{id:int}", async (int id, UredjajUnos u) =>
         {
             await using var c = Veza();
-            var g = await Provjeri(c, u); if (g is not null) return Greska(g);
+            var g = await Provjeri(c, u) ?? await DuplikatInventurnog(c, u, id); if (g is not null) return Greska(g);
             return await Izvrsi(async () =>
             {
                 var n = await c.ExecuteAsync(@"
@@ -169,15 +185,71 @@ public static class UredjajiApi
                 return n == 0 ? Results.NotFound(new { greska = "Uređaj ne postoji." }) : Results.Ok();
             });
         }).RequireAuthorization(Politike.Kancelarija);
+
+        // Uvoz uređaja iz Excela (npr. popis osnovnih sredstava klijenta). Pregled i mapiranje radi stranica;
+        // ovdje: uređaj se prepoznaje po serijskom broju, inače po inventurnom broju kod klijenta → ažurira; ostali se dodaju.
+        uredjaji.MapPost("/uvoz", async (UvozUredjaja unos) =>
+        {
+            if (unos.KlijentId <= 0) return Greska("Izaberite klijenta.");
+            await using var c = Veza();
+            await c.OpenAsync();
+            await using var tx = await c.BeginTransactionAsync();
+            var jedinice = (await c.QueryAsync<int>("SELECT Id FROM dbo.PoslovnaJedinica WHERE KlijentId = @k", new { k = unos.KlijentId }, tx)).ToHashSet();
+            var tipovi = (await c.QueryAsync<int>("SELECT Id FROM dbo.TipUredjaja", transaction: tx)).ToHashSet();
+            int novih = 0, azuriranih = 0, preskocenih = 0;
+            foreach (var r in unos.Redovi ?? [])
+            {
+                var ser = Prazno(r.SerijskiBroj);
+                var inv = Prazno(r.InventurniBroj);
+                if (ser is null && inv is null) { preskocenih++; continue; }
+                int? jed = r.PoslovnaJedinicaId is int j && jedinice.Contains(j) ? j : null;
+                int? tip = r.TipUredjajaId is int t && tipovi.Contains(t) ? t : null;
+                var model = Prazno(r.Model);
+
+                int? id = null;
+                if (ser is not null)
+                    id = await c.ExecuteScalarAsync<int?>("SELECT Id FROM dbo.Uredjaj WHERE SerijskiBroj = @ser", new { ser }, tx);
+                if (id is null && inv is not null)
+                    id = await c.ExecuteScalarAsync<int?>("SELECT TOP 1 Id FROM dbo.Uredjaj WHERE KlijentId = @k AND InventurniBroj = @inv",
+                        new { k = unos.KlijentId, inv }, tx);
+
+                if (id is null)
+                {
+                    await c.ExecuteAsync(@"INSERT INTO dbo.Uredjaj (SerijskiBroj, InventurniBroj, Model, TipUredjajaId, KlijentId, PoslovnaJedinicaId)
+                                           VALUES (@ser, @inv, @model, @tip, @k, @jed)", new { ser, inv, model, tip, k = unos.KlijentId, jed }, tx);
+                    novih++;
+                }
+                else
+                {
+                    await c.ExecuteAsync(@"UPDATE dbo.Uredjaj SET SerijskiBroj = COALESCE(SerijskiBroj, @ser), InventurniBroj = COALESCE(@inv, InventurniBroj),
+                                               Model = COALESCE(@model, Model), TipUredjajaId = COALESCE(@tip, TipUredjajaId),
+                                               KlijentId = @k, PoslovnaJedinicaId = COALESCE(@jed, PoslovnaJedinicaId)
+                                           WHERE Id = @id", new { id, ser, inv, model, tip, k = unos.KlijentId, jed }, tx);
+                    azuriranih++;
+                }
+            }
+            await tx.CommitAsync();
+            return Results.Ok(new { novih, azuriranih, preskocenih });
+        }).RequireAuthorization(Politike.Kancelarija);
+    }
+
+    /// <summary>Uređaj bez serijskog broja: inventurni broj mora biti jedinstven kod klijenta.</summary>
+    private static async Task<string?> DuplikatInventurnog(SqlConnection c, UredjajUnos u, int? id)
+    {
+        if (u.InventurniBroj is null || u.KlijentId is null) return null;
+        var drugi = await c.ExecuteScalarAsync<int?>(
+            "SELECT TOP 1 Id FROM dbo.Uredjaj WHERE KlijentId = @k AND InventurniBroj = @inv AND (@id IS NULL OR Id <> @id)",
+            new { k = u.KlijentId, inv = u.InventurniBroj, id });
+        return drugi is null ? null : "Kod ovog klijenta već postoji uređaj s tim inventurnim brojem.";
     }
 
     /// <summary>Čisti unos i provjerava ga; vraća poruku greške ili null.</summary>
     private static async Task<string?> Provjeri(SqlConnection c, UredjajUnos u)
     {
-        u.SerijskiBroj = (u.SerijskiBroj ?? "").Trim();
+        u.SerijskiBroj = Prazno(u.SerijskiBroj);
         u.InventurniBroj = Prazno(u.InventurniBroj);
         u.Model = Prazno(u.Model);
-        if (u.SerijskiBroj.Length == 0) return "Upišite serijski broj.";
+        if (u.SerijskiBroj is null && u.InventurniBroj is null) return "Upišite serijski ili inventurni broj.";
         if (u.ZadnjiKolor < 0 || u.ZadnjiCB < 0) return "Stanje brojača ne može biti negativno.";
         if (u.GarancijaDo is not null) u.GarancijaDo = u.GarancijaDo.Value.Date;
         if (u.BrojacDatum is not null) u.BrojacDatum = u.BrojacDatum.Value.Date;
@@ -192,6 +264,7 @@ public static class UredjajiApi
             if (u.KlijentId is not null && u.KlijentId != klijentJedinice) return "Poslovna jedinica ne pripada izabranom klijentu.";
             u.KlijentId = klijentJedinice;
         }
+        if (u.SerijskiBroj is null && u.KlijentId is null) return "Uređaj bez serijskog broja mora imati klijenta (prepoznaje se po inventurnom broju kod klijenta).";
         return null;
     }
 

@@ -294,10 +294,18 @@ public static class NaloziApi
             var samoCb = prati && r.SamoCrnoBijeli;
 
             int? uredjajId = null;
+            // Uređaj se prepoznaje po serijskom broju, a ako ga nema – po inventurnom broju kod istog klijenta
+            UredjajStanje? post = null;
             if (r.SerijskiBroj is not null)
-            {
-                var post = await c.QuerySingleOrDefaultAsync<UredjajStanje>(
+                post = await c.QuerySingleOrDefaultAsync<UredjajStanje>(
                     "SELECT Id, KlijentId FROM dbo.Uredjaj WITH (UPDLOCK) WHERE SerijskiBroj = @s", new { s = r.SerijskiBroj }, tx);
+            if (post is null && r.InventurniBroj is not null)
+                post = await c.QueryFirstOrDefaultAsync<UredjajStanje>(@"
+                    SELECT TOP 1 Id, KlijentId FROM dbo.Uredjaj WITH (UPDLOCK)
+                    WHERE KlijentId = @k AND InventurniBroj = @inv AND (SerijskiBroj IS NULL OR @s IS NULL OR SerijskiBroj = @s)",
+                    new { k = u.KlijentId, inv = r.InventurniBroj, s = r.SerijskiBroj }, tx);
+            if (r.SerijskiBroj is not null || post is not null)
+            {
                 if (post is null)
                 {
                     uredjajId = await c.ExecuteScalarAsync<int>(@"
@@ -310,6 +318,7 @@ public static class NaloziApi
                     uredjajId = post.Id;
                     await c.ExecuteAsync(@"
                         UPDATE dbo.Uredjaj SET
+                            SerijskiBroj = COALESCE(SerijskiBroj, @ser),
                             Model = COALESCE(@model, Model),
                             InventurniBroj = COALESCE(@inv, InventurniBroj),
                             TipUredjajaId = COALESCE(@tip, TipUredjajaId),
@@ -317,7 +326,7 @@ public static class NaloziApi
                             PoslovnaJedinicaId = CASE WHEN ISNULL(KlijentId, @k) = @k AND @jed IS NOT NULL THEN @jed ELSE PoslovnaJedinicaId END,
                             KlijentId = ISNULL(KlijentId, @k)
                         WHERE Id = @id",
-                        new { id = post.Id, model = r.Model, inv = r.InventurniBroj, tip = r.TipUredjajaId, samoCb, k = u.KlijentId, jed = jedinicaId }, tx);
+                        new { id = post.Id, ser = r.SerijskiBroj, model = r.Model, inv = r.InventurniBroj, tip = r.TipUredjajaId, samoCb, k = u.KlijentId, jed = jedinicaId }, tx);
                 }
 
                 if (kolor is not null || cb is not null)

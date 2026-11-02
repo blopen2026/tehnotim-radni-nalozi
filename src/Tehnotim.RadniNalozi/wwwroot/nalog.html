@@ -331,7 +331,7 @@ function renderDevRows(list) {
     r.querySelector('.d-mono').addEventListener('change', () => updateCnt(r));
     ['.d-kol', '.d-cb'].forEach(c => r.querySelector(c).addEventListener('input', () => updateCnt(r)));
     r.querySelector('.x').onclick = () => { const d = collectDevs(); d.splice(+r.dataset.i, 1); renderDevRows(d.length ? d : [{}]); };
-    if (r.dataset.uid) { r.querySelector('.d-h').innerHTML = '✓ Uređaj iz baze' + linkIstorije(r.querySelector('.d-ser').value.trim()); r.querySelector('.d-h').className = 'hint d-h ok'; ucitajPrethodni(r); }
+    if (r.dataset.uid) { r.querySelector('.d-h').innerHTML = '✓ Uređaj iz baze' + linkIstorije(r.querySelector('.d-ser').value.trim() || r.querySelector('.d-inv').value.trim()); r.querySelector('.d-h').className = 'hint d-h ok'; ucitajPrethodni(r); }
     updateCnt(r);
   });
 }
@@ -340,16 +340,17 @@ async function trazUredjaj(r, broj) {
   const h = r.querySelector('.d-h');
   r.dataset.uid = ''; r.prethodni = null;
   if (!broj.trim()) { h.textContent = ''; updateCnt(r); return; }
-  const res = await fetch('/api/uredjaji/po-broju?broj=' + encodeURIComponent(broj.trim()));
+  const kl = kByName($('#f-klijent').value);
+  const res = await fetch('/api/uredjaji/po-broju?broj=' + encodeURIComponent(broj.trim()) + (kl ? `&klijentId=${kl.id}` : ''));
   if (!res.ok) { h.textContent = 'Novi uređaj, biće dodan u bazu pri čuvanju'; h.className = 'hint d-h new'; updateCnt(r); return; }
   const u = await res.json();
   r.dataset.uid = u.id;
-  r.querySelector('.d-ser').value = u.serijskiBroj;
+  r.querySelector('.d-ser').value = u.serijskiBroj || '';
   r.querySelector('.d-mod').value = u.model || '';
   r.querySelector('.d-inv').value = u.inventurniBroj || '';
   if (u.tipUredjajaId) r.querySelector('.d-tip').value = String(u.tipUredjajaId);
   r.querySelector('.d-mono').checked = u.samoCrnoBijeli;
-  h.innerHTML = '✓ ' + esc([u.klijentNaziv, u.jedinicaNaziv].filter(Boolean).join(' · ')) + (u.brojNaloga ? linkIstorije(u.serijskiBroj, u.brojNaloga) : '');
+  h.innerHTML = '✓ ' + esc([u.klijentNaziv, u.jedinicaNaziv].filter(Boolean).join(' · ')) + (u.brojNaloga ? linkIstorije(u.serijskiBroj || u.inventurniBroj, u.brojNaloga) : '');
   h.className = 'hint d-h ok';
   r.garancijaDo = u.garancijaDo;
   if (u.klijentNaziv && !$('#f-klijent').value.trim()) {

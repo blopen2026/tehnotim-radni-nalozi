@@ -17,6 +17,7 @@
   <div class="card">
     <div class="akcije" style="margin-top:0">
       <h1 style="flex:1;margin:0">Uređaji</h1>
+      <a href="uvoz-uredjaja.html" id="uvoz-link"><button>Uvoz iz Excela</button></a>
       <button class="primary" id="novi">+ Novi uređaj</button>
     </div>
     <div class="akcije">
@@ -85,7 +86,7 @@ async function ucitajListu() {
     const bro = u.zadnjiKolor != null || u.zadnjiCB != null
       ? `${u.samoCrnoBijeli ? '' : 'K ' + (u.zadnjiKolor ?? '—') + ' · '}CB ${u.zadnjiCB ?? '—'}<div class="sitno">${fD(u.brojacDatum)}</div>` : '';
     return `<tr class="klik" data-id="${u.id}">
-      <td class="mono">${esc(u.serijskiBroj)}</td><td class="mono">${esc(u.inventurniBroj || '')}</td>
+      <td class="mono">${u.serijskiBroj ? esc(u.serijskiBroj) : '<span class="muted">—</span>'}</td><td class="mono">${esc(u.inventurniBroj || '')}</td>
       <td>${esc(u.model || '')}<div class="sitno">${esc(u.tipNaziv || '')}${u.samoCrnoBijeli ? ' · C/B' : ''}</div></td>
       <td>${esc(u.klijentNaziv || '')}<div class="sitno">${esc(u.jedinicaNaziv || '')}</div></td>
       <td>${g ? `<span class="chip ${g >= danas() ? 'ok' : 'warn'}">${fD(g)}</span>` : '<span class="muted">—</span>'}</td>
@@ -112,7 +113,7 @@ function osvjeziBrojac() {
 
 async function uredi(u) {
   urediId = u ? u.id : null;
-  $('#forma-naslov').textContent = u ? `Izmjena: ${u.serijskiBroj}` : 'Novi uređaj';
+  $('#forma-naslov').textContent = u ? `Izmjena: ${u.serijskiBroj || 'inv. ' + (u.inventurniBroj || '')}` : 'Novi uređaj';
   $('#u-ser').value = u?.serijskiBroj || '';
   $('#u-inv').value = u?.inventurniBroj || '';
   $('#u-model').value = u?.model || '';
