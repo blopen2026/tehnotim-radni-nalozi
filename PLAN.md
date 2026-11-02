@@ -46,6 +46,7 @@ Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
 **Rad servisera**
 - [ ] 1. Rad sa telefona na terenu: forma prilagođena telefonu, „instalacija” na početni ekran (PWA), rad bez interneta (nalog se pošalje kad se veza vrati)
 - [ ] 2. Potpis klijenta na daljinu: link na mail za naloge „čeka potpis” → klijent pregleda i potpiše → nalog završen, PDF u tiket
+      Varijante (A–F) i pitanja za sektor mreža i korisnike: dokument „Potpis ovlaštenog lica korisnika – mogući načini” (https://claude.ai/artifact/SyVng1VMKykkWat3X7yp1U). Čeka konsultacije.
 - [ ] 3. Skeniranje serijskog broja (bar-kod/QR) kamerom telefona – u nalog i magacin
 
 **Uređaji i ugovori o održavanju**
