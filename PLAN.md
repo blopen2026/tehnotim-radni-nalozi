@@ -39,7 +39,7 @@ Urađeno (čeka probu na testnom serveru):
 - [ ] Izvještaji radnih naloga (filteri, grupisanje, Excel, štampa, PDF svih naloga) – opis: `docs/izvjestaji.md`
 
 **Sljedeće za razgovor (napomena 31.10.2026.):**
-- [ ] Uvoz uređaja iz Excela (serijski broj više nije obavezan, tip UPS) – opis: `docs/uvoz-uredjaja.md`
+- [x] (2026-11-02) Uvoz uređaja iz Excela (serijski broj više nije obavezan, tip UPS) – opis: `docs/uvoz-uredjaja.md`
 
 Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
 
