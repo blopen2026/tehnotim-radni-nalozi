@@ -49,6 +49,9 @@ Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
       Umjesto toga (2026-11-27): dugme „Zatvori nalog” – nalog Završen, napomena + PDF u tiket; čeka probu.
 - [ ] 2b. Zatvaranje tiketa u SDP-u iz aplikacije – kod postoji, isključen: SDP pri zatvaranju traži obavezna polja
       (ko je servisirao, serijski broj, brojač za printing…). Treba: spisak obaveznih polja po šablonu/sektoru → popunjavanje iz naloga.
+      Iz SDP-a (27.11.2026., alati/sdp-obavezna-polja.ps1): `udf_pick_602` „Inženjer / Tehničar” (lista imena, svi sektori),
+      Printing template još `udf_sline_301` „Serijski broj” i `udf_long_303` „Counter” (bez uređaja upisuju „0”).
+      Šifra zatvaranja se ne koristi; tehničari upišu rješenje, a SDP sam zatvara riješene tikete („Aged Request was Closed”).
       Varijante (A–F) i pitanja za sektor mreža: dokument „Potpis ovlaštenog lica korisnika – mogući načini” (https://claude.ai/artifact/SyVng1VMKykkWat3X7yp1U). Za produkciju ostaje dostupnost `/potvrda/` iz mreže klijenata.
 - [ ] 3. Skeniranje serijskog broja (bar-kod/QR) kamerom telefona – u nalog i magacin
 
