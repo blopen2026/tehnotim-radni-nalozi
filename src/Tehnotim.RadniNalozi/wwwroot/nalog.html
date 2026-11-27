@@ -55,6 +55,12 @@
   .sig .top{display:flex;justify-content:space-between;align-items:center}
   .signame{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:600}
   .signame .muted{font-weight:400;font-size:13px}
+  .potvrda-red{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .potvrda-red .f{flex:1;min-width:240px} .potvrda-red[hidden]{display:none}
+  .pstanje{padding:10px 12px;border-radius:8px;background:var(--sunk);font-size:14px}
+  .pstanje.ok{background:var(--ok-bg);color:var(--ok)} .pstanje.warn{background:var(--warn-bg);color:var(--warn)}
+  details.ekran summary{cursor:pointer;color:var(--muted);font-size:14px}
+  details.ekran .sig{margin-top:10px;max-width:520px}
 </style>
 </head>
 <body>
@@ -72,9 +78,10 @@ const danas = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.ge
 const sada = () => { const d = new Date(); return `${danas()}T${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(n) ? 0 : n; };
 const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
-const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potvrdu', zavrsen: 'Završen' };
+const fDT = s => s ? fD(s) + ' ' + s.slice(11, 16) : '';
 
-let S = { klijenti: [], tipovi: [], modeli: [], materijal: [], nosioci: [], postavke: {}, jedinice: [] };
+let S = { klijenti: [], tipovi: [], modeli: [], materijal: [], nosioci: [], postavke: {}, jedinice: [], lica: [], posta: { spremno: true } };
 let cur = null, nalogId = new URLSearchParams(location.search).get('id'), vrijemeRucno = false;
 let tiketId = new URLSearchParams(location.search).get('tiket'), nacrt = null, sviNosioci = false;
 
@@ -155,16 +162,18 @@ function buildForm() {
     <div class="yn"><h2>Intervencija</h2>${seg('interv', ['NA TERENU', 'SERVIS/KANCELARIJA'])}</div>
   </div></div>
 
-  <div class="sec"><div class="lab">Ovjera (potpis)</div><div class="body">
-    <div class="sigs">
-      <div class="sig"><div class="top"><h2 style="margin:0">Izvođač (serviser)</h2><button class="ghost" data-clear="s">Obriši</button></div>
-        <div class="signame"><span id="sig-s-name"></span><span class="muted">potpis nije obavezan</span></div>
-        <canvas id="sig-s" width="600" height="200" aria-label="Potpis servisera"></canvas></div>
-      <div class="sig"><div class="top"><h2 style="margin:0">Korisnik usluge</h2><button class="ghost" data-clear="k">Obriši</button></div>
-        <div class="signame"><span class="muted">potpisom korisnika nalog postaje „Završen”</span></div>
-        <canvas id="sig-k" width="600" height="200" aria-label="Potpis korisnika"></canvas>
-        <label class="check"><input type="checkbox" id="f-kasnije"> Korisnik potpisuje kasnije (nalog ide u „Čeka potpis”)</label></div>
+  <div class="sec"><div class="lab">Potvrda korisnika</div><div class="body">
+    <div id="potvrda-stanje"></div>
+    <div class="potvrda-red" id="potvrda-slanje">
+      <label class="f"><span>Ovlašteno lice (kome ide e-mail za potvrdu)</span><select id="f-lice"></select></label>
+      <button id="posalji-potvrdu">Pošalji na potvrdu</button>
     </div>
+    <div class="hint" id="h-lice"></div>
+    <details class="ekran" id="potpis-ekran" ${n.potpisKorisnik ? 'open' : ''}><summary>Korisnik je tu – potpis na ekranu umjesto potvrde e-mailom</summary>
+      <div class="sig"><div class="top"><h2 style="margin:0">Potpis korisnika usluge</h2><button class="ghost" data-clear="k">Obriši</button></div>
+        <div class="signame"><span class="muted">potpisom korisnika nalog postaje „Završen”</span></div>
+        <canvas id="sig-k" width="600" height="200" aria-label="Potpis korisnika"></canvas></div>
+    </details>
   </div></div>
 
   ${n.id ? `<div class="sec"><div class="lab">Istorija izmjena</div><div class="body"><div id="istorija" class="muted">Učitavam…</div></div></div>` : ''}
@@ -185,21 +194,20 @@ function buildForm() {
   $('#f-opisz').value = n.opisZahtjeva || ''; $('#f-opisi').value = n.opisIntervencije || '';
   $('#f-dest').value = n.putDestinacija || ''; $('#f-km1').value = n.kmTamo ?? ''; $('#f-km2').value = n.kmNazad ?? '';
   $('#f-tarifa').value = n.tarifaKm ?? (S.postavke.tarifaKm || '');
-  $('#f-kasnije').checked = !!n.potpisKasnije;
 
   popuniNosioce(n.nosilacKorisnikId, n.nosilacIme);
 
   renderDevRows(n.uredjaji.length ? n.uredjaji : [{}]);
   renderMatRows(n.materijal.length ? n.materijal : [{}]);
 
-  padS = pad($('#sig-s'), n.potpisServiser ? 'data:image/png;base64,' + n.potpisServiser : null);
-  padK = pad($('#sig-k'), n.potpisKorisnik ? 'data:image/png;base64,' + n.potpisKorisnik : null, () => { $('#f-kasnije').checked = false; });
-  $$('[data-clear]').forEach(b => b.onclick = () => (b.dataset.clear === 's' ? padS : padK).clear());
-  const o0 = $('#f-nosilac').selectedOptions[0]; $('#sig-s-name').textContent = o0 && o0.value ? o0.textContent : 'Izaberite nosioca naloga gore';
+  padK = pad($('#sig-k'), n.potpisKorisnik ? 'data:image/png;base64,' + n.potpisKorisnik : null);
+  $$('[data-clear]').forEach(b => b.onclick = () => padK.clear());
+  prikaziPotvrdu();
+  $('#posalji-potvrdu').onclick = posaljiPotvrdu;
 
   $('#f-klijent').addEventListener('change', () => onKlijent(true));
   $('#f-klijent').addEventListener('input', klijentHint);
-  $('#f-lokacija').addEventListener('change', onLok);
+  $('#f-lokacija').addEventListener('change', () => { onLok(); popuniLica(); });
   $('#f-lokacija').addEventListener('input', lokHint);
   $('#f-vrijeme').addEventListener('change', () => { vrijemeRucno = !!$('#f-vrijeme').value.trim(); calcTime(); });
   ['#f-pocetak', '#f-kraj'].forEach(s => $(s).addEventListener('input', calcTime));
@@ -257,7 +265,6 @@ function popuniNosioce(izabran, imeIzabranog) {
   el.value = izabran ? String(izabran) : '';
   el.onchange = () => {
     if (el.value === '__svi') { sviNosioci = true; popuniNosioce(null); el.focus(); }
-    const o = el.selectedOptions[0]; $('#sig-s-name').textContent = o && o.value && o.value !== '__svi' ? o.textContent : 'Izaberite nosioca naloga gore';
   };
 }
 
@@ -271,7 +278,8 @@ function klijentHint() {
 async function onKlijent(korisnikMijenja) {
   klijentHint();
   const k = kByName($('#f-klijent').value);
-  S.jedinice = k ? (await fetch(`/api/klijenti/${k.id}`).then(r => r.json())).jedinice : [];
+  [S.jedinice, S.lica] = k ? await Promise.all([fetch(`/api/klijenti/${k.id}`).then(r => r.json()).then(d => d.jedinice),
+                                                 fetch(`/api/klijenti/${k.id}/ovlastena-lica`).then(r => r.json())]) : [[], []];
   $('#dl-jedinice').innerHTML = S.jedinice.map(j => `<option value="${esc(j.naziv)}">${esc([j.mjesto, j.adresa].filter(Boolean).join(', '))}</option>`).join('');
   if (k && korisnikMijenja) {
     setR('ugovor', k.ugovor ? 'DA' : 'NE');
@@ -281,6 +289,7 @@ async function onKlijent(korisnikMijenja) {
     }
   }
   lokHint();
+  popuniLica();
 }
 function lokHint() {
   const h = $('#h-lok'), k = kByName($('#f-klijent').value), v = $('#f-lokacija').value.trim();
@@ -465,8 +474,74 @@ function calcTravel() {
   $('#f-putni').textContent = (km * t).toFixed(2).replace('.', ',');
 }
 
+// ---------- Potvrda korisnika (e-mail ovlaštenom licu) ----------
+const emailoviIzKontakta = () => [nacrt?.requesterEmail, ...($('#f-kontakt')?.value.match(/[^\s,;]+@[^\s,;]+\.[^\s,;]+/g) || [])].filter(Boolean).map(norm);
+function popuniLica() {
+  const el = $('#f-lice'); if (!el) return;
+  const k = kByName($('#f-klijent').value), j = jByName($('#f-lokacija').value);
+  const aktivna = S.lica.filter(l => l.aktivan);
+  const zaJed = aktivna.filter(l => !l.sveJedinice && j && l.jedinice.includes(j.id));
+  const sve = aktivna.filter(l => l.sveJedinice);
+  const ostala = aktivna.filter(l => !zaJed.includes(l) && !sve.includes(l));
+  const opt = l => `<option value="${l.id}">${esc(l.imePrezime)}${l.funkcija ? ' – ' + esc(l.funkcija) : ''} (${esc(l.email)})</option>`;
+  const grupa = (naslov, lista) => lista.length ? `<optgroup label="${esc(naslov)}">${lista.map(opt).join('')}</optgroup>` : '';
+  const prije = el.value || (cur?.potvrdaLiceId ? String(cur.potvrdaLiceId) : '');
+  el.innerHTML = '<option value="">— izaberi ovlašteno lice —</option>'
+    + grupa(j ? `Za ${j.naziv}` : 'Za ovu jedinicu', zaJed) + grupa('Za sve jedinice klijenta', sve) + grupa('Ostala lica klijenta', ostala)
+    + (cur?.potvrdaLiceId && !aktivna.some(l => l.id === cur.potvrdaLiceId) ? `<option value="${cur.potvrdaLiceId}">${esc(cur.potvrdaIme || '')} (${esc(cur.potvrdaEmail || '')}) – isključeno</option>` : '');
+  // Prijedlog: ranije izabrano → osoba iz tiketa / kontakta → jedino lice za jedinicu → jedino lice klijenta
+  const izKontakta = aktivna.find(l => emailoviIzKontakta().includes(norm(l.email)));
+  const postoji = v => !!v && [...el.options].some(o => o.value === v);
+  el.value = [prije, izKontakta?.id, zaJed.length === 1 && zaJed[0].id, !zaJed.length && sve.length === 1 && sve[0].id,
+              aktivna.length === 1 && aktivna[0].id].map(v => v ? String(v) : '').find(postoji) || '';
+  const h = $('#h-lice'), smije = ['kancelarija', 'administrator'].includes(window.ja?.uloga);
+  if (!k) h.textContent = '';
+  else if (!aktivna.length) h.innerHTML = `Klijent nema upisanih ovlaštenih lica. ${smije ? `<a href="klijent.html?id=${k.id}#ovlastena-lica" target="_blank">Dodaj ovlašteno lice →</a>` : 'Javite kancelariji da ih upiše (Klijenti → klijent → Ovlaštena lica).'}`;
+  else h.innerHTML = smije ? `<a href="klijent.html?id=${k.id}#ovlastena-lica" target="_blank">Uredi ovlaštena lica klijenta →</a>` : '';
+  if (!S.posta.spremno && k) h.innerHTML = `<span class="greska">${esc(S.posta.poruka || 'Slanje e-maila nije podešeno.')}</span> ` + h.innerHTML;
+}
+function prikaziPotvrdu() {
+  const n = cur, el = $('#potvrda-stanje');
+  let html = '', slanje = true, dugme = 'Pošalji na potvrdu';
+  if (n.potvrdjeno) {
+    html = `<div class="pstanje ok"><b>Potvrđeno</b> – ${esc(n.potvrdaIme)} (${esc(n.potvrdaEmail)}), ${fDT(n.potvrdjeno)}. Kod potvrde: <span class="mono">${esc(n.potvrdaKod || '')}</span></div>`;
+    slanje = false;
+  } else if (n.potpisKorisnik) {
+    html = '<div class="pstanje ok"><b>Korisnik je potpisao nalog na ekranu.</b></div>'; slanje = false;
+  } else if (n.potvrdaPrimjedbaVrijeme) {
+    html = `<div class="pstanje warn"><b>Primjedba korisnika</b> – ${esc(n.potvrdaIme)}, ${fDT(n.potvrdaPrimjedbaVrijeme)}:<br>${esc(n.potvrdaPrimjedba || '').replace(/\n/g, '<br>')}<br><span style="font-size:13px">Ispravite nalog, sačuvajte ga i pošaljite ponovo na potvrdu.</span></div>`;
+    dugme = 'Pošalji ponovo';
+  } else if (n.potvrdaPoslano) {
+    html = `<div class="pstanje warn"><b>Čeka potvrdu</b> – poslano na ${esc(n.potvrdaIme)} (${esc(n.potvrdaEmail)}), ${fDT(n.potvrdaPoslano)}${n.potvrdaPoslao ? ', poslao ' + esc(n.potvrdaPoslao) : ''}.</div>`;
+    dugme = 'Pošalji ponovo';
+  }
+  el.innerHTML = html;
+  el.hidden = !html;
+  $('#potvrda-slanje').hidden = !slanje;
+  $('#potpis-ekran').hidden = !!n.potvrdjeno;
+  $('#posalji-potvrdu').textContent = dugme;
+  $('#posalji-potvrdu').disabled = !S.posta.spremno;
+  // Potvrđen nalog mijenja samo kancelarija
+  if (n.potvrdjeno && window.ja?.uloga === 'serviser') { $('#save').disabled = true; $('#save').title = 'Korisnik je potvrdio nalog – izmjene radi kancelarija.'; }
+}
+async function posaljiPotvrdu() {
+  const lid = $('#f-lice').value;
+  if (!lid) { $('#h-lice').innerHTML = '<span class="greska">Izaberite ovlašteno lice kome ide e-mail.</span>'; $('#f-lice').focus(); return; }
+  if (!getR('status') || !$('#f-opisi').value.trim()) {
+    $('#save-state').innerHTML = '<span class="greska">Prije slanja izaberite status i upišite opis izvršene intervencije.</span>'; return;
+  }
+  if (!nalogId || izmjene) { if (!(await save())) return; }
+  const b = $('#posalji-potvrdu'); b.disabled = true;
+  $('#save-state').textContent = 'Šaljem e-mail za potvrdu…';
+  const r = await fetch(`/api/nalozi/${nalogId}/potvrda`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ liceId: +lid }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || 'E-mail nije poslan.')}</span>`; if ($('#posalji-potvrdu')) $('#posalji-potvrdu').disabled = false; return; }
+  await ucitajNalog();
+  $('#save-state').innerHTML = `<span class="chip ok">Nalog je poslan na potvrdu: ${esc(d.ime)} (${esc(d.email)})</span>`;
+}
+
 // ---------- Potpis ----------
-let padS, padK;
+let padK;
 function pad(cv, init, poPotpisu) {
   const ctx = cv.getContext('2d');
   let crta = false, potpisano = !!init, mijenjan = false, zadnja = null;
@@ -529,8 +604,8 @@ async function save() {
     nosilacKorisnikId: $('#f-nosilac').value ? +$('#f-nosilac').value : null,
     opisZahtjeva: $('#f-opisz').value, opisIntervencije: $('#f-opisi').value,
     putDestinacija: $('#f-dest').value.trim() || null, kmTamo: broj($('#f-km1').value), kmNazad: broj($('#f-km2').value), tarifaKm: broj($('#f-tarifa').value),
-    status: getR('status'), intervencija: getR('interv'), potpisKasnije: $('#f-kasnije').checked,
-    potpisServiser: padS.get(), potpisKorisnik: padK.get(),
+    status: getR('status'), intervencija: getR('interv'), potpisKasnije: !!cur?.potpisKasnije,
+    potpisServiser: null, potpisKorisnik: padK.get(),
     uredjaji: collectDevs(), materijal: collectMats(),
     sektorId: nacrt?.sektorId ?? cur?.sektorId ?? null,
     sdp: nacrt && !nalogId ? { zahtjevId: +nacrt.interni, siteId: nacrt.siteId, siteNaziv: nacrt.siteNaziv, requesterId: nacrt.requesterId,
@@ -624,18 +699,18 @@ function popuniListe() {
   $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">${esc([m.pn, m.vodiSeSN ? 'po SN' : 'na stanju ' + kolTxt(m.stanje)].filter(Boolean).join(' · '))}</option>`).join('');
 }
 
-['input', 'change'].forEach(ev => $('#main').addEventListener(ev, () => { izmjene = true; }));
+['input', 'change'].forEach(ev => $('#main').addEventListener(ev, e => { if (e.target.id !== 'f-lice') izmjene = true; }));
 $('#main').addEventListener('pointerdown', e => { if (e.target.tagName === 'CANVAS') izmjene = true; });
 $('#main').addEventListener('click', e => {
   const b = e.target.closest('button');
-  if (b && !['save', 'print', 'pdf', 'del'].includes(b.id)) izmjene = true;
+  if (b && !['save', 'print', 'pdf', 'del', 'posalji-potvrdu'].includes(b.id)) izmjene = true;
 });
 
 (async () => {
   window.ja = await ucitajZaglavlje(nalogId ? 'nalozi' : tiketId ? 'tiketi' : 'novi');
   if (!ja.registrovan) return;
-  [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke] = await Promise.all(
-    ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/magacin/artikli', '/api/nosioci', '/api/postavke'].map(u => fetch(u).then(r => r.json())));
+  [S.klijenti, S.tipovi, S.modeli, S.materijal, S.nosioci, S.postavke, S.posta] = await Promise.all(
+    ['/api/klijenti', '/api/tipovi', '/api/uredjaji/modeli', '/api/magacin/artikli', '/api/nosioci', '/api/postavke', '/api/posta/stanje'].map(u => fetch(u).then(r => r.json())));
   popuniListe();
   await ucitajNalog();
 })();

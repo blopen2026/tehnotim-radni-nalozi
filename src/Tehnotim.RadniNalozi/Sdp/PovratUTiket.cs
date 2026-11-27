@@ -75,7 +75,10 @@ public static class PovratUTiket
                     catch (SdpGreska ex) { greskaPdf ??= ex.Message; }
                 }
 
-                var html = $"<b>Radni nalog {H(n.Broj)} je završen</b> (potpisan od korisnika usluge)<br>"
+                var html = $"<b>Radni nalog {H(n.Broj)} je završen</b> "
+                         + (n.Potvrdjeno is DateTime potvrdjeno
+                             ? $"(potvrdio korisnik: {H(n.PotvrdaIme)}, {H(n.PotvrdaEmail)}, {potvrdjeno:dd.MM.yyyy. HH:mm})<br>"
+                             : "(potpisan od korisnika usluge)<br>")
                          + $"Nosilac: {H(n.NosilacIme)}<br>"
                          + (string.IsNullOrWhiteSpace(n.Status) ? "" : $"Status: {H(n.Status)}<br>")
                          + (string.IsNullOrWhiteSpace(n.Intervencija) ? "" : $"Intervencija: {H(n.Intervencija)}<br>")

@@ -136,7 +136,8 @@ public static class NaloziApi
                    UtrosenoVrijeme, UtrosenoRucno, KlijentId, PoslovnaJedinicaId, KlijentNaziv, Lokacija, Adresa, Kontakt,
                    Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
-                   PotpisServiser, PotpisKorisnik, Kreirano, Kreirao, Izmijenjeno, Izmijenio
+                   PotpisServiser, PotpisKorisnik, PotvrdaLiceId, PotvrdaIme, PotvrdaEmail, PotvrdaKod, PotvrdaPoslano, PotvrdaPoslao,
+                   Potvrdjeno, PotvrdaPrimjedba, PotvrdaPrimjedbaVrijeme, Kreirano, Kreirao, Izmijenjeno, Izmijenio
             FROM dbo.Nalog WHERE Id = @id", new { id });
         if (n is null) return null;
 
@@ -158,6 +159,15 @@ public static class NaloziApi
         public int? CB { get; set; }
         public DateTime? Datum { get; set; }
         public string? IzNaloga { get; set; }
+    }
+
+    private class PostojecaPotvrda
+    {
+        public string Broj { get; set; } = "";
+        public bool ImaPotpis { get; set; }
+        public DateTime? PotvrdaPoslano { get; set; }
+        public DateTime? Potvrdjeno { get; set; }
+        public DateTime? PotvrdaPrimjedbaVrijeme { get; set; }
     }
 
     private class UredjajStanje
@@ -231,14 +241,19 @@ public static class NaloziApi
         // Postojeći nalog
         string? postojeciBroj = null;
         var imaPotpisKorisnika = false;
+        PostojecaPotvrda? potvrda = null;
         if (id is not null)
         {
-            var post = await c.QuerySingleOrDefaultAsync<(string Broj, bool ImaPotpis)>(
-                "SELECT Broj, CAST(CASE WHEN PotpisKorisnik IS NULL THEN 0 ELSE 1 END AS bit) FROM dbo.Nalog WITH (UPDLOCK) WHERE Id = @id",
-                new { id }, tx);
-            if (post.Broj is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
-            postojeciBroj = post.Broj;
-            imaPotpisKorisnika = post.ImaPotpis;
+            potvrda = await c.QuerySingleOrDefaultAsync<PostojecaPotvrda>(@"
+                SELECT Broj, CAST(CASE WHEN PotpisKorisnik IS NULL THEN 0 ELSE 1 END AS bit) AS ImaPotpis,
+                       PotvrdaPoslano, Potvrdjeno, PotvrdaPrimjedbaVrijeme
+                FROM dbo.Nalog WITH (UPDLOCK) WHERE Id = @id", new { id }, tx);
+            if (potvrda is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
+            postojeciBroj = potvrda.Broj;
+            imaPotpisKorisnika = potvrda.ImaPotpis;
+            // Nalog koji je korisnik potvrdio mijenja samo kancelarija (izmjena se upisuje u istoriju)
+            if (potvrda.Potvrdjeno is not null && !ko.IsInRole(Uloge.Kancelarija) && !ko.IsInRole(Uloge.Administrator))
+                return Greska("Korisnik je potvrdio ovaj nalog, pa ga može mijenjati samo kancelarija.");
         }
 
         // Klijent
@@ -346,7 +361,10 @@ public static class NaloziApi
         // Putni troškovi i faza
         decimal? putniIznos = u.TarifaKm is decimal t && (u.KmTamo is not null || u.KmNazad is not null)
             ? Math.Round(((u.KmTamo ?? 0) + (u.KmNazad ?? 0)) * t, 2) : null;
-        var faza = potpisKorisnik is not null ? "zavrsen" : u.PotpisKasnije ? "ceka_potpis" : "u_radu";
+        // Faza: završen = korisnik potvrdio (link iz e-maila) ili potpisao na ekranu; čeka potvrdu = poslano, a još nije potvrđeno
+        var cekaPotvrdu = potvrda is { PotvrdaPoslano: not null, Potvrdjeno: null, PotvrdaPrimjedbaVrijeme: null };
+        var faza = potpisKorisnik is not null || potvrda?.Potvrdjeno is not null ? "zavrsen"
+                 : cekaPotvrdu || u.PotpisKasnije ? "ceka_potpis" : "u_radu";
         var potpisKasnije = potpisKorisnik is null && u.PotpisKasnije;
 
         var p = new
@@ -400,7 +418,7 @@ public static class NaloziApi
                     NosilacKorisnikId = @NosilacKorisnikId, NosilacIme = @nosilacIme, OpisZahtjeva = @OpisZahtjeva, OpisIntervencije = @OpisIntervencije,
                     PutDestinacija = @PutDestinacija, KmTamo = @KmTamo, KmNazad = @KmNazad, TarifaKm = @TarifaKm, PutniIznos = @putniIznos,
                     Status = @status, Intervencija = @intervencija, PotpisKasnije = @PotpisKasnije,
-                    PotpisServiser = @potpisServiser, PotpisKorisnik = @potpisKorisnik,
+                    PotpisKorisnik = @potpisKorisnik,
                     SektorId = @SektorId, SdpZahtjevId = COALESCE(@sdpZahtjevId, SdpZahtjevId),
                     Izmijenjeno = SYSUTCDATETIME(), Izmijenio = @korisnik
                 WHERE Id = @id", p, tx);
@@ -435,7 +453,7 @@ public static class NaloziApi
 
         // Istorija
         await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
-            new { nalogId, korisnik, opis = id is null ? "Nalog kreiran" : "Nalog izmijenjen" }, tx);
+            new { nalogId, korisnik, opis = id is null ? "Nalog kreiran" : potvrda?.Potvrdjeno is not null ? "Nalog izmijenjen nakon potvrde korisnika" : "Nalog izmijenjen" }, tx);
         var potpisPromjena = !imaPotpisKorisnika && potpisKorisnik is not null ? "Korisnik usluge potpisao nalog"
                            : imaPotpisKorisnika && potpisKorisnik is null ? "Potpis korisnika uklonjen" : null;
         if (potpisPromjena is not null)

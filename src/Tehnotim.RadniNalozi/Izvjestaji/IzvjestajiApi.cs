@@ -231,7 +231,7 @@ public static class IzvjestajiApi
 
     private static string Sati(int minuta) => $"{minuta / 60} h {minuta % 60:00} min";
     private static readonly Dictionary<string, string> Faze = new()
-    { ["novo_iz_tiketa"] = "Novo iz tiketa", ["u_radu"] = "U radu", ["ceka_potpis"] = "Čeka potpis", ["zavrsen"] = "Završen" };
+    { ["novo_iz_tiketa"] = "Novo iz tiketa", ["u_radu"] = "U radu", ["ceka_potpis"] = "Čeka potvrdu", ["zavrsen"] = "Završen" };
 
     private static byte[] Excel(Rezultat r, IzvjestajUpit u)
     {

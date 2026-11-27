@@ -2,6 +2,18 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-11-27 – Potvrda naloga (umjesto potpisa klijenta na daljinu)
+
+- Ide **pojedinačni nalog**, ne zbirni.
+- Mi ne potpisujemo nalog: na nalogu je samo ime servisera koji je radio (nosilac naloga) – „Nalog izvršio”.
+- Nalog se e-mailom šalje **ovlaštenom licu klijenta** da potvrdi da je upoznat s nalogom; kad potvrdi (link iz e-maila), nalog se zatvara (Završen).
+- Ovlaštena lica se vode po klijentu (Klijenti → Ovlaštena lica): ime, e-mail, funkcija; za sve jedinice ili za izabrane. Na nalogu se lice **bira** iz te liste.
+- Korisnik može umjesto potvrde poslati primjedbu → nalog se vraća u „U radu”.
+- Na PDF-u: red „Elektronska potvrda korisnika” (ko, kad, kod potvrde); dno podijeljeno napola: lijevo „Nalog izvršio (serviser – nosilac naloga)”, desno „Ovjera korisnika usluge (potpis korisnika)” – prazno polje da klijent potpiše i preda svojoj službi finansija.
+- Red „Uređaj predao (datum i potpis)” ostaje.
+- Potpis korisnika na ekranu ostaje kao mogućnost kad je korisnik prisutan.
+- Opis i uputstvo: `docs/potvrda-naloga.md`. Za produkciju: sa sektorom mreža dogovoriti kako je `/potvrda/` dostupna iz mreže klijenata (HTTPS).
+
 ## 2026-11-27 – Novi logo i memorandum
 
 - Novi logo iz memoranduma firme (Memorandum_Tehnotim_NOVI1.docx): `wwwroot/img/logo.png` (tirkizni, za PDF) i `logo-svijetli.png` (bijeli s tirkiznim „TIM”, za tamnu traku aplikacije).

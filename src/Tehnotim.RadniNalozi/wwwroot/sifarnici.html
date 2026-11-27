@@ -69,6 +69,27 @@
     <div class="akcije"><button class="primary" id="sdp-sac">Sačuvaj</button><button id="sdp-prov">Provjeri vezu</button><span id="sdp-poruka"></span></div>
   </div>
 
+  <div class="card" id="posta-card" hidden>
+    <h2>Slanje e-maila i potvrda naloga</h2>
+    <p class="muted">Preko ovog mail servera aplikacija šalje nalog ovlaštenom licu klijenta na potvrdu. Lozinka se nikad ne prikazuje – polje ostavite prazno da ostane postojeća.</p>
+    <div class="grid">
+      <label class="f"><span>SMTP server</span><input id="p-server" class="mono" placeholder="npr. smtp.firma.ba"></label>
+      <label class="f"><span>Zaštita veze</span><select id="p-sigurnost">
+        <option value="auto">Automatski</option><option value="starttls">STARTTLS (obično port 587)</option>
+        <option value="ssl">SSL/TLS (obično port 465)</option><option value="bez">Bez šifrovanja (port 25, samo interni server)</option></select></label>
+      <label class="f"><span>Port (prazno = uobičajeni)</span><input id="p-port" inputmode="numeric" class="mono"></label>
+      <label class="f"><span>Korisničko ime</span><input id="p-korisnik" class="mono" autocomplete="off"></label>
+      <label class="f"><span>Lozinka</span><input id="p-lozinka" type="password" autocomplete="new-password" class="mono"></label>
+      <label class="f"><span>Adresa pošiljaoca</span><input id="p-posiljalac" class="mono" placeholder="nalozi@tehnotim.ba"></label>
+      <label class="f"><span>Ime pošiljaoca</span><input id="p-posiljalac-ime" placeholder="Tehnotim – radni nalozi"></label>
+      <label class="f"><span>Javna adresa aplikacije (za link u e-mailu)</span><input id="p-javna" class="mono" placeholder="https://nalozi.tehnotim.ba"></label>
+    </div>
+    <p class="muted" style="font-size:13px">Javna adresa je adresa na kojoj klijent iz svoje mreže može otvoriti aplikaciju. Za probu na testnom serveru može biti npr. <span class="mono">http://TEST-NALOZI</span>.</p>
+    <div class="akcije"><button class="primary" id="p-sac">Sačuvaj</button>
+      <input id="p-proba-email" placeholder="adresa za probni e-mail" style="max-width:240px"><button id="p-proba">Pošalji probni e-mail</button>
+      <span id="p-poruka"></span></div>
+  </div>
+
   <div class="card" id="veze-card" hidden>
     <h2>Zapamćene veze sa ServiceDesk Plus-om</h2>
     <p class="muted">Pune se same kad se sačuva nalog napravljen iz tiketa. Pogrešnu vezu obrišite – pri sljedećem tiketu aplikacija će ponovo pitati.</p>
@@ -220,6 +241,29 @@ $('#sdp-prov').onclick = async () => {
   $('#sdp-poruka').innerHTML = r.ok ? `<span class="chip ok">${esc(r.poruka)}</span>` : `<span class="greska">${esc(r.poruka)}</span>`;
 };
 
+// ---------- Slanje e-maila ----------
+async function ucitajPostu() {
+  const p = await fetch('/api/posta/postavke').then(r => r.json());
+  $('#p-server').value = p.smtpServer || ''; $('#p-port').value = p.smtpPort || ''; $('#p-sigurnost').value = p.smtpSigurnost || 'auto';
+  $('#p-korisnik').value = p.smtpKorisnik || ''; $('#p-lozinka').value = '';
+  $('#p-lozinka').placeholder = p.lozinkaPostavljena ? 'postavljena – upišite novu samo ako je mijenjate' : 'nije postavljena';
+  $('#p-posiljalac').value = p.smtpPosiljalac || ''; $('#p-posiljalac-ime').value = p.smtpPosiljalacIme || ''; $('#p-javna').value = p.javnaAdresa || '';
+}
+const tijeloPoste = () => ({
+  smtpServer: $('#p-server').value, smtpPort: parseInt($('#p-port').value, 10) || null, smtpSigurnost: $('#p-sigurnost').value,
+  smtpKorisnik: $('#p-korisnik').value, smtpLozinka: $('#p-lozinka').value, smtpPosiljalac: $('#p-posiljalac').value,
+  smtpPosiljalacIme: $('#p-posiljalac-ime').value, javnaAdresa: $('#p-javna').value
+});
+$('#p-sac').onclick = async () => { if (await posalji('/api/posta/postavke', 'PUT', tijeloPoste(), $('#p-poruka'))) ucitajPostu(); };
+$('#p-proba').onclick = async () => {
+  if (!(await posalji('/api/posta/postavke', 'PUT', tijeloPoste(), null))) { $('#p-poruka').innerHTML = '<span class="greska">Postavke nisu sačuvane.</span>'; return; }
+  await ucitajPostu();
+  $('#p-poruka').textContent = 'Šaljem…';
+  const r = await fetch('/api/posta/proba', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('#p-proba-email').value }) })
+    .then(x => x.json()).catch(() => ({ ok: false, poruka: 'Aplikacija nije odgovorila.' }));
+  $('#p-poruka').innerHTML = r.ok ? `<span class="chip ok">${esc(r.poruka)}</span>` : `<span class="greska">${esc(r.poruka || r.greska || 'Nije poslano.')}</span>`;
+};
+
 // ---------- Zapamćene veze sa SDP-om ----------
 async function ucitajVeze() {
   const r = await fetch('/api/tiketi/veze');
@@ -278,6 +322,8 @@ $('#post-btn').onclick = async () => {
   ucitajTipove(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
   if (jeAdmin) {
     $('#sdp-card').hidden = false;
+    $('#posta-card').hidden = false;
+    ucitajPostu();
     const p = await ucitajSdp();
     if (p.url && p.kljucPostavljen) await ucitajSdpListe();
   }

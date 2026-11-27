@@ -52,7 +52,7 @@
 <script src="zaglavlje.js"></script>
 <script>
 const $ = s => document.querySelector(s);
-const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potvrdu', zavrsen: 'Završen' };
 const BOJE = { u_radu: '', ceka_potpis: 'warn', zavrsen: 'ok', novo_iz_tiketa: '' };
 const fD = s => s.slice(0, 10).split('-').reverse().join('.') + '.';
 const chipFaze = f => `<span class="chip ${BOJE[f]}" style="${BOJE[f] ? '' : 'background:var(--sunk)'}">${FAZE[f]}</span>`;
@@ -110,10 +110,10 @@ async function stanjeSistema() {
   if (serviser) {
     const uRadu = d.aktivni.filter(n => n.faza !== 'ceka_potpis').length, cekaju = d.aktivni.length - uRadu;
     b += brojka('b-urad', uRadu, 'mojih naloga u radu', `nalozi.html?nosilacId=${d.korisnikId}&faza=u_radu`);
-    b += brojka('b-potpis', cekaju, 'mojih naloga čeka potpis', `nalozi.html?nosilacId=${d.korisnikId}&faza=ceka_potpis`, cekaju ? 'warn' : '');
+    b += brojka('b-potpis', cekaju, 'mojih naloga čeka potvrdu', `nalozi.html?nosilacId=${d.korisnikId}&faza=ceka_potpis`, cekaju ? 'warn' : '');
   } else {
     b += brojka('b-urad', d.poFazama.uRadu, 'naloga u radu', 'nalozi.html?faza=u_radu');
-    b += brojka('b-potpis', d.poFazama.cekaPotpis, 'naloga čeka potpis', 'nalozi.html?faza=ceka_potpis', d.poFazama.cekaPotpis ? 'warn' : '');
+    b += brojka('b-potpis', d.poFazama.cekaPotpis, 'naloga čeka potvrdu', 'nalozi.html?faza=ceka_potpis', d.poFazama.cekaPotpis ? 'warn' : '');
     b += brojka('b-zavrseno', d.poFazama.zavrsenoMjesec, 'završeno ovaj mjesec', 'nalozi.html?faza=zavrsen', 'ok');
   }
   b += brojka('b-tiketi', '…', 'tiketi bez naloga', 'tiketi.html');

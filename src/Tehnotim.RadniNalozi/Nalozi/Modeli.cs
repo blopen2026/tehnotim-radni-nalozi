@@ -68,7 +68,7 @@ public class NalogMaterijalUnos
     public string? BrojOtpremnice { get; set; }
 }
 
-/// <summary>Nalog kako ga čita forma (bez potpisa – korak 9).</summary>
+/// <summary>Nalog kako ga čita forma i PDF.</summary>
 public class NalogDetalji
 {
     public int Id { get; set; }
@@ -110,6 +110,16 @@ public class NalogDetalji
     public bool PotpisKasnije { get; set; }
     public byte[]? PotpisServiser { get; set; }   // u JSON-u ide kao base64
     public byte[]? PotpisKorisnik { get; set; }
+    // Elektronska potvrda korisnika (vremena su lokalno vrijeme servera)
+    public int? PotvrdaLiceId { get; set; }
+    public string? PotvrdaIme { get; set; }
+    public string? PotvrdaEmail { get; set; }
+    public string? PotvrdaKod { get; set; }
+    public DateTime? PotvrdaPoslano { get; set; }
+    public string? PotvrdaPoslao { get; set; }
+    public DateTime? Potvrdjeno { get; set; }
+    public string? PotvrdaPrimjedba { get; set; }
+    public DateTime? PotvrdaPrimjedbaVrijeme { get; set; }
     public DateTime Kreirano { get; set; }
     public string? Kreirao { get; set; }
     public DateTime? Izmijenjeno { get; set; }

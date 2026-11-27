@@ -45,7 +45,7 @@
 <script src="zaglavlje.js"></script>
 <script>
 const $ = s => document.querySelector(s);
-const FAZE = [['', 'Sve'], ['novo_iz_tiketa', 'Novo iz tiketa'], ['u_radu', 'U radu'], ['ceka_potpis', 'Čeka potpis'], ['zavrsen', 'Završen']];
+const FAZE = [['', 'Sve'], ['novo_iz_tiketa', 'Novo iz tiketa'], ['u_radu', 'U radu'], ['ceka_potpis', 'Čeka potvrdu'], ['zavrsen', 'Završen']];
 const NAZIV_FAZE = Object.fromEntries(FAZE);
 const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
 let faza = '', stranica = 1;

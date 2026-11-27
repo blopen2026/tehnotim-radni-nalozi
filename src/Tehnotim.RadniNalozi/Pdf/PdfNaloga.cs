@@ -24,9 +24,11 @@ public static class PdfNaloga
     // Mreže kolona – iste proporcije kao u prototipu (zbir 702)
     private static readonly double[] MrezaGore = Mreza([112, 92, 96, 81, 81, 120, 60, 60]);
     private static readonly double[] MrezaDole = Mreza([112, 92, 96, 81, 81, 80, 80, 80]);
+    private static readonly double[] Polovine = Mreza([1, 1]);
 
     private static readonly XColor SivaLabel = XColor.FromArgb(230, 230, 230);
     private static readonly XColor SivaOznaceno = XColor.FromArgb(200, 200, 200);
+    private static readonly XColor PotvrdaPozadina = XColor.FromArgb(0xEA, 0xF5, 0xF7);
     private static readonly CultureInfo Bs = CultureInfo.GetCultureInfo("bs-Latn-BA");
 
     private static XFont F(double vel, bool podebljano = false) =>
@@ -51,7 +53,7 @@ public static class PdfNaloga
 
     private sealed record Celija(int Od, int Raspon, string? Tekst,
         bool Label = false, bool Oznaceno = false, bool Centar = false, bool Desno = false, bool Bold = false,
-        double Vel = 8.5, double MinH = 0, byte[]? Slika = null);
+        double Vel = 8.5, double MinH = 0, byte[]? Slika = null, bool Potvrda = false, bool Tirkizno = false);
 
     /// <summary>Lijeve ćelije zauzimaju visinu cijelog bloka; desno su redovi (podredovi) jedan ispod drugog.</summary>
     private sealed record Blok(double[] Mreza, List<Celija> Lijevo, List<List<Celija>> Redovi);
@@ -143,16 +145,41 @@ public static class PdfNaloga
         blokovi.Add(Red(dole, L(0, 1, "Intervencija:"),
             Izbor(1, 4, "NA TERENU", n.Intervencija), Izbor(5, 3, "SERVIS/KANCELARIJA", n.Intervencija)));
 
-        blokovi.Add(new(dole, [L(0, 1, "OVJERA RADNOG NALOGA (potpis)")],
-        [
-            [T(1, 4, "IZVOĐAČ (SERVISER): " + n.NosilacIme, minH: 40), new Celija(5, 3, null, MinH: 40, Slika: n.PotpisServiser)],
-            [T(1, 4, "KORISNIK USLUGE:", minH: 40), new Celija(5, 3, null, MinH: 40, Slika: n.PotpisKorisnik)]
-        ]));
+        // Elektronska potvrda korisnika (link iz e-maila)
+        var (stanjePotvrde, opisPotvrde, napomenaPotvrde) = TekstPotvrde(n);
+        var redoviPotvrde = new List<List<Celija>>
+        {
+            new() { new Celija(1, 1, stanjePotvrde, Centar: true, Bold: true, Potvrda: true, Tirkizno: true, Vel: 8),
+                    new Celija(2, 6, opisPotvrde, Potvrda: true, Vel: 8.5) }
+        };
+        if (napomenaPotvrde is not null)
+            redoviPotvrde.Add(new() { new Celija(1, 7, napomenaPotvrde, Potvrda: true, Vel: 7.5) });
+        blokovi.Add(new(dole, [L(0, 1, "Elektronska potvrda korisnika:")], redoviPotvrde));
+
+        // Dno: lijevo ko je izvršio nalog (bez potpisa), desno mjesto za potpis korisnika (za službu finansija)
+        blokovi.Add(Red(Polovine, L(0, 1, "NALOG IZVRŠIO (serviser – nosilac naloga)", centar: true),
+                                  L(1, 1, "OVJERA KORISNIKA USLUGE (potpis korisnika)", centar: true)));
+        blokovi.Add(Red(Polovine, new Celija(0, 1, n.NosilacIme, Centar: true, Bold: true, Vel: 10, MinH: 44),
+                                  new Celija(1, 1, null, MinH: 44, Slika: n.PotpisKorisnik)));
 
         Crtaj(doc, blokovi, n, firma, logo);
         using var izlaz = new MemoryStream();
         doc.Save(izlaz);
         return izlaz.ToArray();
+    }
+
+    private static (string Stanje, string Opis, string? Napomena) TekstPotvrde(NalogDetalji n)
+    {
+        string Kad(DateTime d) => d.ToString("dd.MM.yyyy.", Bs) + " u " + d.ToString("HH:mm", Bs);
+        var ko = string.IsNullOrWhiteSpace(n.PotvrdaEmail) ? n.PotvrdaIme : $"{n.PotvrdaIme} ({n.PotvrdaEmail})";
+        if (n.Potvrdjeno is DateTime p)
+            return ("POTVRĐENO", $"{ko}, {Kad(p)}, putem linka iz e-maila",
+                    "Korisnik je potvrdio da je upoznat sa sadržajem ovog radnog naloga." + (n.PotvrdaKod is null ? "" : $" Kod potvrde: {n.PotvrdaKod}"));
+        if (n.PotvrdaPrimjedbaVrijeme is DateTime pr)
+            return ("PRIMJEDBA", $"{ko}, {Kad(pr)}: {n.PotvrdaPrimjedba}", null);
+        if (n.PotvrdaPoslano is DateTime po)
+            return ("ČEKA POTVRDU", $"Poslano na potvrdu: {ko}, {Kad(po)}", null);
+        return ("—", n.PotpisKorisnik is not null ? "Korisnik usluge je potpisao nalog." : "Nalog nije poslan na elektronsku potvrdu.", null);
     }
 
     private static Celija[] DaNe(string? v) =>
@@ -297,8 +324,8 @@ public static class PdfNaloga
     {
         var x = Margina + m[c.Od];
         var w = m[c.Od + c.Raspon] - m[c.Od];
-        if (c.Label || c.Oznaceno)
-            g.DrawRectangle(new XSolidBrush(c.Oznaceno ? SivaOznaceno : SivaLabel), x, y, w, h);
+        if (c.Label || c.Oznaceno || c.Potvrda)
+            g.DrawRectangle(new XSolidBrush(c.Oznaceno ? SivaOznaceno : c.Potvrda ? PotvrdaPozadina : SivaLabel), x, y, w, h);
         g.DrawRectangle(Linija, x, y, w, h);
 
         if (c.Slika is { Length: > 0 })
@@ -316,12 +343,13 @@ public static class PdfNaloga
         var redovi = Prelomi(g, c.Tekst, f, w - 2 * Pad);
         var vr = VisinaReda(c.Vel);
         // Kratki tekst (labele, vrijednosti) vertikalno u sredini; dugi opisi od vrha
-        var ty = c.MinH > 30 ? y + Pad : y + (h - redovi.Count * vr) / 2;
+        var ty = c.MinH > 30 && !c.Centar ? y + Pad : y + (h - redovi.Count * vr) / 2;
+        var boja = c.Tirkizno ? MemorandumBoja : XBrushes.Black;
         foreach (var r in redovi)
         {
             var tw = g.MeasureString(r, f).Width;
             var tx = c.Centar ? x + (w - tw) / 2 : c.Desno ? x + w - Pad - tw : x + Pad;
-            g.DrawString(r, f, XBrushes.Black, tx, ty + (vr - c.Vel) / 2, XStringFormats.TopLeft);
+            g.DrawString(r, f, boja, tx, ty + (vr - c.Vel) / 2, XStringFormats.TopLeft);
             ty += vr;
         }
     }

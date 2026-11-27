@@ -8,6 +8,10 @@
 <style>
   .jed-forma{background:var(--sunk);border-radius:8px;padding:14px;margin-top:12px}
   td.sitno{font-size:13px;color:var(--muted)}
+  .jed-izbor{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--surface);display:grid;gap:2px}
+  .jed-izbor label{display:flex;gap:8px;align-items:center;font-size:14px} .jed-izbor input{width:auto}
+  .chk{display:flex;gap:8px;align-items:center;margin-top:10px} .chk input{width:auto}
+  tr.iskljuceno td{opacity:.55}
 </style>
 </head>
 <body>
@@ -26,6 +30,40 @@
       <span id="k-poruka"></span>
     </div>
     <p class="muted"><span id="k-stat"></span> · <a id="uredjaji-link" href="uredjaji.html">Uređaji ovog klijenta →</a></p>
+  </div>
+
+  <div class="card" id="ovlastena-lica">
+    <div class="akcije" style="margin-top:0">
+      <h2 style="flex:1;margin:0">Ovlaštena lica</h2>
+      <button id="l-novo">+ Novo ovlašteno lice</button>
+    </div>
+    <p class="muted" style="margin:6px 0 0">Osobe klijenta kojima se završen nalog šalje e-mailom na potvrdu. Lice može važiti za sve poslovne jedinice ili samo za izabrane.</p>
+
+    <div class="jed-forma" id="l-forma" hidden>
+      <h2 id="l-naslov">Novo ovlašteno lice</h2>
+      <div class="grid">
+        <label class="f"><span>Ime i prezime</span><input id="l-ime"></label>
+        <label class="f"><span>E-mail</span><input id="l-email" type="email" placeholder="ime@institucija.ba"></label>
+        <label class="f"><span>Funkcija (nije obavezno)</span><input id="l-funkcija" placeholder="npr. šef PJ Prijedor"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="l-sve" checked> Važi za sve poslovne jedinice klijenta</label>
+      <div id="l-jed-box" hidden style="margin-top:8px">
+        <input id="l-jed-trazi" type="search" placeholder="Traži jedinicu" style="max-width:300px;margin-bottom:6px">
+        <div class="jed-izbor" id="l-jedinice"></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="l-aktivan" checked> Aktivno (nudi se na nalozima)</label>
+      <div class="akcije">
+        <button class="primary" id="l-sac">Sačuvaj</button>
+        <button id="l-odustani">Odustani</button>
+        <button id="l-del">Obriši</button>
+        <span id="l-poruka"></span>
+      </div>
+    </div>
+
+    <div class="tablebox" style="margin-top:12px"><table>
+      <thead><tr><th>Ime i prezime</th><th>E-mail</th><th>Funkcija</th><th>Važi za</th></tr></thead>
+      <tbody id="l-lista"></tbody>
+    </table></div>
   </div>
 
   <div class="card">
@@ -67,7 +105,7 @@
 <script>
 const $ = s => document.querySelector(s);
 const id = new URLSearchParams(location.search).get('id');
-let jedinice = [], urediId = null;
+let jedinice = [], urediId = null, lica = [], liceId = null;
 
 const greskaIz = async (r) => {
   const g = await r.json().catch(() => ({}));
@@ -93,7 +131,63 @@ async function ucitaj() {
   $('#uvoz-link').href = `uvoz.html?klijent=${encodeURIComponent(k.naziv)}`;
   $('#uredjaji-link').href = `uredjaji.html?klijent=${k.id}`;
   prikaziJedinice();
+  lica = await fetch(`/api/klijenti/${id}/ovlastena-lica`).then(r => r.json());
+  prikaziLica();
 }
+
+// ---------- Ovlaštena lica ----------
+const imeJedinice = jid => jedinice.find(j => j.id === jid)?.naziv || '?';
+function prikaziLica() {
+  $('#l-lista').innerHTML = !lica.length
+    ? '<tr><td colspan="4" class="muted">Nema ovlaštenih lica. Dodajte osobe kojima se nalozi šalju na potvrdu.</td></tr>'
+    : lica.map(l => `<tr class="klik ${l.aktivan ? '' : 'iskljuceno'}" data-id="${l.id}">
+        <td><b>${esc(l.imePrezime)}</b>${l.aktivan ? '' : ' <span class="muted">(isključeno)</span>'}</td>
+        <td class="sitno">${esc(l.email)}</td>
+        <td class="sitno">${esc(l.funkcija || '')}</td>
+        <td class="sitno">${l.sveJedinice ? 'sve jedinice' : esc(l.jedinice.map(imeJedinice).join(', '))}</td></tr>`).join('');
+  document.querySelectorAll('#l-lista tr[data-id]').forEach(tr => tr.onclick = () => urediLice(lica.find(l => l.id == tr.dataset.id)));
+}
+function prikaziIzborJedinica(izabrane) {
+  const q = $('#l-jed-trazi').value.trim().toLowerCase();
+  $('#l-jedinice').innerHTML = jedinice.map(j => `<label ${q && ![j.naziv, j.mjesto].some(x => (x || '').toLowerCase().includes(q)) ? 'hidden' : ''}>
+      <input type="checkbox" value="${j.id}" ${izabrane.includes(j.id) ? 'checked' : ''}> ${esc(j.naziv)}${j.mjesto ? ` <span class="muted">· ${esc(j.mjesto)}</span>` : ''}</label>`).join('')
+    || '<span class="muted">Klijent nema poslovnih jedinica.</span>';
+}
+const izabraneJedinice = () => [...document.querySelectorAll('#l-jedinice input:checked')].map(i => +i.value);
+function urediLice(l) {
+  liceId = l ? l.id : null;
+  $('#l-naslov').textContent = l ? `Izmjena: ${l.imePrezime}` : 'Novo ovlašteno lice';
+  $('#l-ime').value = l?.imePrezime || ''; $('#l-email').value = l?.email || ''; $('#l-funkcija').value = l?.funkcija || '';
+  $('#l-sve').checked = l ? l.sveJedinice : true; $('#l-aktivan').checked = l ? l.aktivan : true;
+  $('#l-jed-trazi').value = '';
+  prikaziIzborJedinica(l ? l.jedinice : []);
+  $('#l-jed-box').hidden = $('#l-sve').checked;
+  $('#l-del').hidden = !l; $('#l-del').textContent = 'Obriši'; delete $('#l-del').dataset.potvrda;
+  $('#l-poruka').textContent = '';
+  $('#l-forma').hidden = false;
+  $('#l-forma').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#l-ime').focus();
+}
+$('#l-novo').onclick = () => urediLice(null);
+$('#l-odustani').onclick = () => { $('#l-forma').hidden = true; };
+$('#l-sve').onchange = () => { $('#l-jed-box').hidden = $('#l-sve').checked; };
+$('#l-jed-trazi').oninput = () => prikaziIzborJedinica(izabraneJedinice());
+$('#l-sac').onclick = async () => {
+  const tijelo = { imePrezime: $('#l-ime').value, email: $('#l-email').value, funkcija: $('#l-funkcija').value,
+                   sveJedinice: $('#l-sve').checked, aktivan: $('#l-aktivan').checked, jedinice: izabraneJedinice() };
+  const r = await fetch(liceId ? `/api/ovlastena-lica/${liceId}` : `/api/klijenti/${id}/ovlastena-lica`, {
+    method: liceId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tijelo)
+  });
+  if (r.ok) { $('#l-forma').hidden = true; await ucitaj(); }
+  else javi($('#l-poruka'), false, await greskaIz(r));
+};
+$('#l-del').onclick = async () => {
+  const b = $('#l-del');
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno obrisati?'; return; }
+  const r = await fetch(`/api/ovlastena-lica/${liceId}`, { method: 'DELETE' });
+  if (r.ok) { $('#l-forma').hidden = true; await ucitaj(); }
+  else javi($('#l-poruka'), false, await greskaIz(r));
+};
 
 function prikaziJedinice() {
   const q = $('#j-trazi').value.trim().toLowerCase();
@@ -165,7 +259,8 @@ $('#k-del').onclick = async () => {
 (async () => {
   const ja = await ucitajZaglavlje('klijenti');
   if (!ja.registrovan) return;
-  ucitaj();
+  await ucitaj();
+  if (location.hash === '#ovlastena-lica') $('#ovlastena-lica').scrollIntoView();
 })();
 </script>
 </body>

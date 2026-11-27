@@ -41,7 +41,7 @@
       <label class="f"><span>Poslovna jedinica</span><select id="jedinica" disabled><option value="">Sve</option></select></label>
       <label class="f samo-kanc"><span>Nosilac</span><select id="nosilac"><option value="">Svi</option></select></label>
       <label class="f samo-kanc"><span>Sektor</span><select id="sektor"><option value="">Svi</option></select></label>
-      <label class="f"><span>Faza</span><select id="faza"><option value="">Sve</option><option value="u_radu">U radu</option><option value="ceka_potpis">Čeka potpis</option><option value="zavrsen">Završen</option></select></label>
+      <label class="f"><span>Faza</span><select id="faza"><option value="">Sve</option><option value="u_radu">U radu</option><option value="ceka_potpis">Čeka potvrdu</option><option value="zavrsen">Završen</option></select></label>
       <label class="f"><span>Naplata</span><select id="naplata"><option value="">Sve</option><option>DA</option><option>NE</option></select></label>
       <label class="f"><span>Ugovor</span><select id="ugovor"><option value="">Svi</option><option>DA</option><option>NE</option></select></label>
       <label class="f"><span>Intervencija</span><select id="intervencija"><option value="">Sve</option><option>NA TERENU</option><option>SERVIS/KANCELARIJA</option></select></label>
@@ -81,7 +81,7 @@
 <script src="zaglavlje.js"></script>
 <script>
 const $ = s => document.querySelector(s);
-const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potpis', zavrsen: 'Završen' };
+const FAZE = { novo_iz_tiketa: 'Novo iz tiketa', u_radu: 'U radu', ceka_potpis: 'Čeka potvrdu', zavrsen: 'Završen' };
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const fD = s => s ? s.slice(0, 10).split('-').reverse().join('.') + '.' : '';
 const sati = m => m == null ? '—' : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;

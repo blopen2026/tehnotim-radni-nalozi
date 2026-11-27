@@ -10,6 +10,7 @@ using Tehnotim.RadniNalozi.Magacin;
 using Tehnotim.RadniNalozi.Nalozi;
 using Tehnotim.RadniNalozi.Pdf;
 using Tehnotim.RadniNalozi.Pocetna;
+using Tehnotim.RadniNalozi.Potvrda;
 using Tehnotim.RadniNalozi.Prijava;
 using Tehnotim.RadniNalozi.Sdp;
 using Tehnotim.RadniNalozi.Sifarnici;
@@ -109,6 +110,10 @@ app.MapPocetna(connectionString);
 
 // Izvještaji
 app.MapIzvjestaji(connectionString);
+
+// Elektronska potvrda naloga: ovlaštena lica klijenta, slanje e-maila, stranica potvrde (/potvrda/… je bez prijave)
+app.MapOvlastenaLica(connectionString);
+app.MapPotvrda(connectionString);
 
 // Stanje sistema: baza, tabele, skripte (samo administrator)
 app.MapGet("/api/status", async () =>
