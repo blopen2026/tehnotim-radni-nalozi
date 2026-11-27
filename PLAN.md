@@ -21,7 +21,7 @@ Kad je korak gotov, označi se `[x]` i upiše datum.
 - [x] 12a. (2026-10-31) Testni server: virtuelna mašina (Hyper-V) s Windows Server 2022 – uputstvo: `docs/korak-12a-testni-server.md`
 - [x] 12b. (2026-10-31) Testni server: SQL Server Express, IIS i aplikacija Radni nalozi – uputstvo: `docs/korak-12b-aplikacija-na-testnom-serveru.md`
 - [x] 12c. (2026-10-31) Testni server: kopija ServiceDesk Plus 15200 (isključen mail) – uputstvo: `docs/korak-12c-sdp-testna-kopija.md`
-- [ ] 12d. Instalacija na produkcioni server (IIS), HTTPS, rezervne kopije
+- [ ] 12d. Instalacija na produkcioni server (IIS, port 8443 uz SDP), HTTPS, rezervne kopije – uputstvo: `docs/korak-12d-produkcioni-server.md`
 
 ## Faza 2 – Veza sa ServiceDesk Plus
 

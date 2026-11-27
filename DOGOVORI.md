@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-11-27 – Produkcioni server
+
+- Aplikacija ide na server gdje radi SDP (Windows Server 2022 Standard, u domenu). SDP drži port 443, pa aplikacija radi kao poseban IIS sajt na **8443 (HTTPS)**; SDP se ne dira.
+- Izvana se objavljuje samo `/potvrda/` (sektor mreža); baza SQL Server 2022 Express, podaci i backup na disku D.
+- Prvo probni rad bez veze sa SDP-om; podaci se ponovo uvoze iz Excela. Uputstvo: `docs/korak-12d-produkcioni-server.md`.
+
 ## 2026-11-27 – Potvrda naloga (umjesto potpisa klijenta na daljinu)
 
 - Ide **pojedinačni nalog**, ne zbirni.
