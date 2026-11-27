@@ -470,9 +470,11 @@ function calcTravel() {
 
 // ---------- Zatvaranje naloga (dugme) ----------
 // Potvrda e-mailom (ovlaštena lica) je za sada isključena – nema pristupa izvana; nalog se zatvara dugmetom.
+// Zatvaranje tiketa u SDP-u je za sada isključeno (obavezna polja pri zatvaranju) – isto kao PovratUTiket.ZatvaranjeTiketaUkljuceno
+const ZATVARA_TIKET = false;
 function prikaziZatvaranje() {
   const n = cur, el = $('#zatvaranje'); if (!el) return;
-  const tiket = n.sdpZahtjevId, kanc = ['kancelarija', 'administrator'].includes(window.ja?.uloga);
+  const tiket = ZATVARA_TIKET ? n.sdpZahtjevId : null, kanc = ['kancelarija', 'administrator'].includes(window.ja?.uloga);
   if (n.zatvoreno) {
     el.innerHTML = `<div class="pstanje ok"><b>Nalog je zatvoren</b> – ${esc(n.zatvorio || '')}, ${fDT(n.zatvoreno)}.`
       + (tiket ? (n.sdpTiketZatvoren ? ` Tiket ${tiket} je zatvoren u SDP-u (${fDT(n.sdpTiketZatvoren)}).` : ` <b>Tiket ${tiket} nije zatvoren.</b>`) : '') + '</div>'
@@ -481,7 +483,8 @@ function prikaziZatvaranje() {
     if (window.ja?.uloga === 'serviser') { $('#save').disabled = true; $('#save').title = 'Nalog je zatvoren – izmjene radi kancelarija.'; }
   } else {
     el.innerHTML = `<p class="hint" style="margin:0 0 10px">Kad je posao završen: izaberite status, upišite opis izvršene intervencije i zatvorite nalog.`
-      + (tiket ? ` Zatvaranjem se u tiket ${tiket} upisuje napomena i PDF, a tiket se zatvara u ServiceDesk Plus-u.` : '') + '</p>'
+      + (tiket ? ` Zatvaranjem se u tiket ${tiket} upisuje napomena i PDF, a tiket se zatvara u ServiceDesk Plus-u.`
+         : n.sdpZahtjevId ? ` U tiket ${n.sdpZahtjevId} se upisuje napomena i PDF; sam tiket zatvorite u ServiceDesk Plus-u.` : '') + '</p>'
       + `<button class="primary" id="zatvori">Zatvori nalog${tiket ? ' i tiket' : ''}</button>`;
   }
   const z = $('#zatvori'); if (z) z.onclick = () => zatvori(z);

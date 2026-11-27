@@ -6,7 +6,8 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 
 - Sektor mreža nema WAF, pa `/potvrda/` neće biti objavljena prema van. **Za sada nema e-maila ovlaštenom licu**: nalog se zatvara dugmetom **„Zatvori nalog”** (u nalogu iz tiketa: „Zatvori nalog i tiket”).
 - Zatvaranje: nalog → Završen; nalog iz tiketa: napomena + PDF u tiket, upiše se rješenje (opis intervencije) i tiket se zatvara u SDP-u. Ako zatvaranje tiketa ne uspije, nalog ostaje zatvoren, a dugme „Ponovo zatvori tiket” pokušava ponovo.
-- Pretpostavke (korisnik nije odgovorio, može se promijeniti): zatvara **serviser i kancelarija**; tiket dobija status **Zatvoren (Closed)**, šifra zatvaranja „Success” ako postoji.
+- Pretpostavka (može se promijeniti): zatvara **serviser i kancelarija**.
+- **Zatvaranje tiketa u SDP-u je za sada isključeno**: SDP pri zatvaranju traži obavezna polja (ko je servisirao, serijski broj, brojač za printing). Tiket se zatvara ručno u SDP-u; aplikacija upisuje napomenu + PDF. Kasnije: obavezna polja popunjavati iz naloga (PLAN 2b).
 - Zatvoren nalog mijenja samo kancelarija; kancelarija ga može **vratiti u rad** (tiket u SDP-u se tada ne dira).
 - Kod potvrde e-mailom (ovlaštena lica, SMTP, stranica `/potvrda/`) ostaje u aplikaciji, ali je sakriven; uključuje se kad bude pristupa izvana. Na PDF-u se red „Elektronska potvrda korisnika” prikazuje samo ako je nalog slan na potvrdu.
 - Polje „Ovjera korisnika usluge (potpis korisnika)” na PDF-u ostaje za ručni potpis za službu finansija.

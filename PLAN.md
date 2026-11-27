@@ -46,7 +46,9 @@ Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
 **Rad servisera**
 - [ ] 1. Rad sa telefona na terenu: forma prilagođena telefonu, „instalacija” na početni ekran (PWA), rad bez interneta (nalog se pošalje kad se veza vrati)
 - [ ] 2. Potvrda naloga na daljinu: ovlaštena lica klijenta, e-mail s linkom → potvrda ili primjedba – urađeno, ali **isključeno** (nema pristupa izvana): `docs/potvrda-naloga.md`
-      Umjesto toga (2026-11-27): dugme „Zatvori nalog (i tiket)” – zatvara nalog i tiket u SDP-u; čeka probu.
+      Umjesto toga (2026-11-27): dugme „Zatvori nalog” – nalog Završen, napomena + PDF u tiket; čeka probu.
+- [ ] 2b. Zatvaranje tiketa u SDP-u iz aplikacije – kod postoji, isključen: SDP pri zatvaranju traži obavezna polja
+      (ko je servisirao, serijski broj, brojač za printing…). Treba: spisak obaveznih polja po šablonu/sektoru → popunjavanje iz naloga.
       Varijante (A–F) i pitanja za sektor mreža: dokument „Potpis ovlaštenog lica korisnika – mogući načini” (https://claude.ai/artifact/SyVng1VMKykkWat3X7yp1U). Za produkciju ostaje dostupnost `/potvrda/` iz mreže klijenata.
 - [ ] 3. Skeniranje serijskog broja (bar-kod/QR) kamerom telefona – u nalog i magacin
 

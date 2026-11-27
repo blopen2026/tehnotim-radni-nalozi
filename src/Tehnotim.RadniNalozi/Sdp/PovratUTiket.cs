@@ -107,9 +107,16 @@ public static class PovratUTiket
     /// Zatvara tiket iz kojeg je nalog napravljen (dugme „Zatvori nalog”): upiše rješenje (opis intervencije), pa zatvori zahtjev.
     /// Ako SDP traži šifru zatvaranja, prvo se proba „Success”, pa bez nje.
     /// </summary>
+    /// <summary>
+    /// Za sada isključeno: SDP pri zatvaranju traži obavezna polja (ko je servisirao, serijski broj, brojač za printing…).
+    /// Kad se ta polja povežu s podacima naloga, ovdje staviti true (i ZATVARA_TIKET u nalog.html).
+    /// </summary>
+    public const bool ZatvaranjeTiketaUkljuceno = false;
+
     public static async Task<List<PorukaTiketa>> ZatvoriTiketAsync(string cs, int nalogId, string? korisnik)
     {
         var poruke = new List<PorukaTiketa>();
+        if (!ZatvaranjeTiketaUkljuceno) return poruke;
         var n = await NaloziApi.UcitajAsync(cs, nalogId);
         if (n?.SdpZahtjevId is not long tiket || n.Zatvoreno is null || n.SdpTiketZatvoren is not null) return poruke;
 
