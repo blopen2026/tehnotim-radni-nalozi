@@ -162,16 +162,11 @@ function buildForm() {
     <div class="yn"><h2>Intervencija</h2>${seg('interv', ['NA TERENU', 'SERVIS/KANCELARIJA'])}</div>
   </div></div>
 
-  <div class="sec"><div class="lab">Potvrda korisnika</div><div class="body">
-    <div id="potvrda-stanje"></div>
-    <div class="potvrda-red" id="potvrda-slanje">
-      <label class="f"><span>Ovlašteno lice (kome ide e-mail za potvrdu)</span><select id="f-lice"></select></label>
-      <button id="posalji-potvrdu">Pošalji na potvrdu</button>
-    </div>
-    <div class="hint" id="h-lice"></div>
-    <details class="ekran" id="potpis-ekran" ${n.potpisKorisnik ? 'open' : ''}><summary>Korisnik je tu – potpis na ekranu umjesto potvrde e-mailom</summary>
+  <div class="sec"><div class="lab">Zatvaranje naloga</div><div class="body">
+    <div id="zatvaranje"></div>
+    <details class="ekran" id="potpis-ekran" ${n.potpisKorisnik ? 'open' : ''}><summary>Korisnik je tu – potpis korisnika na ekranu (nije obavezno)</summary>
       <div class="sig"><div class="top"><h2 style="margin:0">Potpis korisnika usluge</h2><button class="ghost" data-clear="k">Obriši</button></div>
-        <div class="signame"><span class="muted">potpisom korisnika nalog postaje „Završen”</span></div>
+        <div class="signame"><span class="muted">potpis se štampa u polju „Ovjera korisnika usluge”</span></div>
         <canvas id="sig-k" width="600" height="200" aria-label="Potpis korisnika"></canvas></div>
     </details>
   </div></div>
@@ -202,8 +197,7 @@ function buildForm() {
 
   padK = pad($('#sig-k'), n.potpisKorisnik ? 'data:image/png;base64,' + n.potpisKorisnik : null);
   $$('[data-clear]').forEach(b => b.onclick = () => padK.clear());
-  prikaziPotvrdu();
-  $('#posalji-potvrdu').onclick = posaljiPotvrdu;
+  prikaziZatvaranje();
 
   $('#f-klijent').addEventListener('change', () => onKlijent(true));
   $('#f-klijent').addEventListener('input', klijentHint);
@@ -474,7 +468,51 @@ function calcTravel() {
   $('#f-putni').textContent = (km * t).toFixed(2).replace('.', ',');
 }
 
-// ---------- Potvrda korisnika (e-mail ovlaštenom licu) ----------
+// ---------- Zatvaranje naloga (dugme) ----------
+// Potvrda e-mailom (ovlaštena lica) je za sada isključena – nema pristupa izvana; nalog se zatvara dugmetom.
+function prikaziZatvaranje() {
+  const n = cur, el = $('#zatvaranje'); if (!el) return;
+  const tiket = n.sdpZahtjevId, kanc = ['kancelarija', 'administrator'].includes(window.ja?.uloga);
+  if (n.zatvoreno) {
+    el.innerHTML = `<div class="pstanje ok"><b>Nalog je zatvoren</b> – ${esc(n.zatvorio || '')}, ${fDT(n.zatvoreno)}.`
+      + (tiket ? (n.sdpTiketZatvoren ? ` Tiket ${tiket} je zatvoren u SDP-u (${fDT(n.sdpTiketZatvoren)}).` : ` <b>Tiket ${tiket} nije zatvoren.</b>`) : '') + '</div>'
+      + `<div class="potvrda-red" style="margin-top:10px">${tiket && !n.sdpTiketZatvoren ? '<button id="zatvori">Ponovo zatvori tiket</button>' : ''}`
+      + `${kanc ? '<button class="ghost" id="otvori">Vrati u rad</button>' : ''}</div>`;
+    if (window.ja?.uloga === 'serviser') { $('#save').disabled = true; $('#save').title = 'Nalog je zatvoren – izmjene radi kancelarija.'; }
+  } else {
+    el.innerHTML = `<p class="hint" style="margin:0 0 10px">Kad je posao završen: izaberite status, upišite opis izvršene intervencije i zatvorite nalog.`
+      + (tiket ? ` Zatvaranjem se u tiket ${tiket} upisuje napomena i PDF, a tiket se zatvara u ServiceDesk Plus-u.` : '') + '</p>'
+      + `<button class="primary" id="zatvori">Zatvori nalog${tiket ? ' i tiket' : ''}</button>`;
+  }
+  const z = $('#zatvori'); if (z) z.onclick = () => zatvori(z);
+  const o = $('#otvori'); if (o) o.onclick = () => vratiURad(o);
+}
+async function zatvori(b) {
+  if (!cur.zatvoreno) {
+    if (!getR('status') || !$('#f-opisi').value.trim()) {
+      $('#save-state').innerHTML = '<span class="greska">Prije zatvaranja izaberite status i upišite opis izvršene intervencije.</span>'; return;
+    }
+    if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno zatvoriti?'; return; }
+    if (!nalogId || izmjene) { if (!(await save())) return; }
+  }
+  const dugme = $('#zatvori'); if (dugme) dugme.disabled = true;
+  $('#save-state').textContent = 'Zatvaram…';
+  const r = await fetch(`/api/nalozi/${nalogId}/zatvori`, { method: 'POST' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || 'Nalog nije zatvoren.')}</span>`; const x = $('#zatvori'); if (x) x.disabled = false; return; }
+  await ucitajNalog();
+  $('#save-state').innerHTML = `<span class="chip ok">Nalog je zatvoren</span>` + porukeTiketa(d.tiket);
+}
+async function vratiURad(b) {
+  if (!b.dataset.potvrda) { b.dataset.potvrda = 1; b.textContent = 'Sigurno vratiti u rad?'; return; }
+  const r = await fetch(`/api/nalozi/${nalogId}/otvori`, { method: 'POST' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || 'Nije uspjelo.')}</span>`; return; }
+  await ucitajNalog();
+  $('#save-state').innerHTML = '<span class="chip ok">Nalog je vraćen u rad</span>';
+}
+
+// ---------- Potvrda korisnika e-mailom (za sada isključeno; ostaje za kasnije) ----------
 const emailoviIzKontakta = () => [nacrt?.requesterEmail, ...($('#f-kontakt')?.value.match(/[^\s,;]+@[^\s,;]+\.[^\s,;]+/g) || [])].filter(Boolean).map(norm);
 function popuniLica() {
   const el = $('#f-lice'); if (!el) return;
@@ -703,7 +741,7 @@ function popuniListe() {
 $('#main').addEventListener('pointerdown', e => { if (e.target.tagName === 'CANVAS') izmjene = true; });
 $('#main').addEventListener('click', e => {
   const b = e.target.closest('button');
-  if (b && !['save', 'print', 'pdf', 'del', 'posalji-potvrdu'].includes(b.id)) izmjene = true;
+  if (b && !['save', 'print', 'pdf', 'del', 'posalji-potvrdu', 'zatvori', 'otvori'].includes(b.id)) izmjene = true;
 });
 
 (async () => {

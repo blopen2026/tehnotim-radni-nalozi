@@ -10,7 +10,7 @@ public record PorukaTiketa(bool Ok, string Poruka);
 
 /// <summary>
 /// Upis u tiket iz kojeg je nalog napravljen: napomena kad se nalog otvori i napomena + PDF kad se završi.
-/// Napomene vide samo tehničari (show_to_requester = false). Status tiketa se ne mijenja.
+/// Napomene vide samo tehničari (show_to_requester = false). Status tiketa mijenja samo dugme „Zatvori nalog” (ZatvoriTiketAsync).
 /// Ne smeta čuvanju naloga: greška se samo javi i upiše u istoriju, a može se ponoviti dugmetom „Pošalji u tiket”.
 /// </summary>
 public static class PovratUTiket
@@ -78,7 +78,9 @@ public static class PovratUTiket
                 var html = $"<b>Radni nalog {H(n.Broj)} je završen</b> "
                          + (n.Potvrdjeno is DateTime potvrdjeno
                              ? $"(potvrdio korisnik: {H(n.PotvrdaIme)}, {H(n.PotvrdaEmail)}, {potvrdjeno:dd.MM.yyyy. HH:mm})<br>"
-                             : "(potpisan od korisnika usluge)<br>")
+                             : n.Zatvoreno is DateTime zatvoreno
+                                 ? $"(zatvorio: {H(n.Zatvorio)}, {zatvoreno:dd.MM.yyyy. HH:mm})<br>"
+                                 : "(potpisan od korisnika usluge)<br>")
                          + $"Nosilac: {H(n.NosilacIme)}<br>"
                          + (string.IsNullOrWhiteSpace(n.Status) ? "" : $"Status: {H(n.Status)}<br>")
                          + (string.IsNullOrWhiteSpace(n.Intervencija) ? "" : $"Intervencija: {H(n.Intervencija)}<br>")
@@ -98,6 +100,48 @@ public static class PovratUTiket
             await Istorija($"Upis u tiket {tiket} nije uspio: {ex.Message}");
             poruke.Add(new(false, $"Upis u tiket {tiket} nije uspio: {ex.Message} Nalog je sačuvan – pokušajte ponovo dugmetom „Pošalji u tiket”."));
         }
+        return poruke;
+    }
+
+    /// <summary>
+    /// Zatvara tiket iz kojeg je nalog napravljen (dugme „Zatvori nalog”): upiše rješenje (opis intervencije), pa zatvori zahtjev.
+    /// Ako SDP traži šifru zatvaranja, prvo se proba „Success”, pa bez nje.
+    /// </summary>
+    public static async Task<List<PorukaTiketa>> ZatvoriTiketAsync(string cs, int nalogId, string? korisnik)
+    {
+        var poruke = new List<PorukaTiketa>();
+        var n = await NaloziApi.UcitajAsync(cs, nalogId);
+        if (n?.SdpZahtjevId is not long tiket || n.Zatvoreno is null || n.SdpTiketZatvoren is not null) return poruke;
+
+        await using var c = new SqlConnection(cs);
+        async Task Istorija(string opis) =>
+            await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)", new { nalogId, korisnik, opis });
+
+        // Rješenje (resolution) – neki SDP-ovi ga traže prije zatvaranja; greška ovdje ne zaustavlja zatvaranje
+        var rjesenje = $"Radni nalog {H(n.Broj)}: {H(n.OpisIntervencije)}<br><i>Upisala aplikacija Radni nalozi.</i>";
+        try { await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}", new { request = new { resolution = new { content = rjesenje } } }); }
+        catch (SdpGreska) { }
+
+        var komentar = $"Zatvoreno iz aplikacije Radni nalozi – nalog {n.Broj} ({korisnik}).";
+        string? greska = null;
+        foreach (var info in new object[]
+                 {
+                     new { requester_ack_resolution = true, requester_ack_comments = komentar, closure_comments = komentar, closure_code = new { name = "Success" } },
+                     new { requester_ack_resolution = true, requester_ack_comments = komentar, closure_comments = komentar }
+                 })
+        {
+            try
+            {
+                await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}/close", new { request = new { closure_info = info } });
+                await c.ExecuteAsync("UPDATE dbo.Nalog SET SdpTiketZatvoren = SYSDATETIME() WHERE Id = @nalogId", new { nalogId });
+                await Istorija($"Tiket {tiket} zatvoren u ServiceDesk Plus-u");
+                poruke.Add(new(true, $"Tiket {tiket} je zatvoren u ServiceDesk Plus-u."));
+                return poruke;
+            }
+            catch (SdpGreska ex) { greska = ex.Message; }
+        }
+        await Istorija($"Tiket {tiket} nije zatvoren: {greska}");
+        poruke.Add(new(false, $"Tiket {tiket} nije zatvoren: {greska} Nalog je zatvoren – tiket zatvorite u SDP-u ili kliknite „Ponovo zatvori tiket”."));
         return poruke;
     }
 }

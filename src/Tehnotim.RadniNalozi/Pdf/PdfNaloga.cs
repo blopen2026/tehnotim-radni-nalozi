@@ -145,16 +145,19 @@ public static class PdfNaloga
         blokovi.Add(Red(dole, L(0, 1, "Intervencija:"),
             Izbor(1, 4, "NA TERENU", n.Intervencija), Izbor(5, 3, "SERVIS/KANCELARIJA", n.Intervencija)));
 
-        // Elektronska potvrda korisnika (link iz e-maila)
+        // Elektronska potvrda korisnika (link iz e-maila) – samo ako je nalog slan na potvrdu
         var (stanjePotvrde, opisPotvrde, napomenaPotvrde) = TekstPotvrde(n);
-        var redoviPotvrde = new List<List<Celija>>
+        if (n.PotvrdaPoslano is not null)
         {
-            new() { new Celija(1, 1, stanjePotvrde, Centar: true, Bold: true, Potvrda: true, Tirkizno: true, Vel: 8),
-                    new Celija(2, 6, opisPotvrde, Potvrda: true, Vel: 8.5) }
-        };
-        if (napomenaPotvrde is not null)
-            redoviPotvrde.Add(new() { new Celija(1, 7, napomenaPotvrde, Potvrda: true, Vel: 7.5) });
-        blokovi.Add(new(dole, [L(0, 1, "Elektronska potvrda korisnika:")], redoviPotvrde));
+            var redoviPotvrde = new List<List<Celija>>
+            {
+                new() { new Celija(1, 1, stanjePotvrde, Centar: true, Bold: true, Potvrda: true, Tirkizno: true, Vel: 8),
+                        new Celija(2, 6, opisPotvrde, Potvrda: true, Vel: 8.5) }
+            };
+            if (napomenaPotvrde is not null)
+                redoviPotvrde.Add(new() { new Celija(1, 7, napomenaPotvrde, Potvrda: true, Vel: 7.5) });
+            blokovi.Add(new(dole, [L(0, 1, "Elektronska potvrda korisnika:")], redoviPotvrde));
+        }
 
         // Dno: lijevo ko je izvršio nalog (bez potpisa), desno mjesto za potpis korisnika (za službu finansija)
         blokovi.Add(Red(Polovine, L(0, 1, "NALOG IZVRŠIO (serviser – nosilac naloga)", centar: true),

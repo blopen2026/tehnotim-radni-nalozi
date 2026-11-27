@@ -6,7 +6,7 @@ Zatečeno stanje (27.11.2026.): IIS instaliran (Default Web Site na portu 80, sa
 **Odluke:**
 - Aplikacija radi kao poseban IIS sajt na **portu 8443 (HTTPS)** – port 443 ostaje SDP-u, SDP se ne dira.
 - Iznutra: `https://nalozi.tehnotim.ba:8443` (ime dogovoriti sa sektorom mreža).
-- Izvana se objavljuje **samo** `https://nalozi.tehnotim.ba/potvrda/…` (reverse proxy / firewall → server:8443).
+- Prema van se **ništa ne objavljuje** (sektor mreža nema WAF); nalozi se zatvaraju dugmetom u aplikaciji.
 - Prijava domenskim nalozima (`DOMENA\ime`).
 - Prvo **probni rad**: veza sa SDP-om prazna (da se ništa ne upisuje u prave tikete) dok se sve ne provjeri.
 
@@ -121,8 +121,6 @@ curl.exe -k -s -o NUL -w "%{http_code}`n" https://localhost:8443/               
 Baza je prazna. Ponovo se unose (iz istih fajlova kao na testu):
 - Šifarnici → **Podaci firme** (kao memorandum), tarifa, tipovi uređaja, sektori, numeracija naloga (ako treba početi od određenog broja);
 - **Klijenti → Uvoz iz Excela** (PURS po regijama, RGU jedinice), **Uređaji → Uvoz** (RGU);
-- **Ovlaštena lica** klijenata;
-- Šifarnici → **Slanje e-maila i potvrda naloga** (SMTP od sektora mreža; javna adresa `https://nalozi.tehnotim.ba`).
 
 Veza sa SDP-om (Šifarnici → Veza sa ServiceDesk Plus) se upisuje **tek kad probni rad prođe** (vidi tačku 10).
 
@@ -152,7 +150,7 @@ Start-ScheduledTask "RadniNalozi backup"     # proba – u D:\RadniNalozi\Backup
 
 ## 10. Probni rad → pravi rad
 
-1. Probni rad: nalozi se prave ručno, potvrda e-mailom se proba sa svojom adresom i sa jednim klijentom.
+1. Probni rad: nalozi se prave ručno i zatvaraju dugmetom „Zatvori nalog”.
 2. Kad je sve u redu: SDP tehničar „Radni nalozi (API)” (licenca), API ključ → Šifarnici → Veza sa SDP-om
    (adresa `https://localhost` ili ime servera, port 443), sektori servisera → SDP nalozi/grupe.
 3. Probni nalozi se obrišu (Nalozi → nalog → Obriši) i, ako treba, numeracija vrati na početak.
@@ -175,8 +173,7 @@ Novu verziju prvo probati na testnom serveru.
    Ako se koristi ime različito od imena servera, za Kerberos: `setspn -S HTTP/nalozi.tehnotim.ba IME-SERVERA` (bez toga radi NTLM).
 3. **Certifikat** za `nalozi.tehnotim.ba` (interni CA ili javni / wildcard `*.tehnotim.ba`), kao `.pfx` sa privatnim ključem – za IIS na portu 8443.
 4. **Firewall:** port **8443** prema serveru iz interne mreže.
-5. **Objava prema van samo za potvrdu naloga:** `https://nalozi.tehnotim.ba/potvrda/…` (javni port 443, javni certifikat)
-   → `https://SERVER:8443/potvrda/…`. Sve ostale putanje izvana **zatvorene**. Reverse proxy treba prosljeđivati i `POST` na istu putanju.
-6. **Slanje e-maila:** SMTP server, port (587 STARTTLS ili 465 SSL), nalog i lozinka za adresu npr. `nalozi@tehnotim.ba`
+5. ~~Objava `/potvrda/` prema van~~ – otpada (nema WAF-a).
+6. **Slanje e-maila** (za sada nije potrebno – tek ako se uključi potvrda e-mailom): SMTP server, port (587 STARTTLS ili 465 SSL), nalog i lozinka za adresu npr. `nalozi@tehnotim.ba`
    (ili interni relay bez lozinke); izlaz sa servera na taj port dozvoljen.
 7. **Rezervne kopije:** `D:\RadniNalozi\Backup` (noćni `.bak` baze) uključiti u backup servera.

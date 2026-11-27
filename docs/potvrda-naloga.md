@@ -1,5 +1,10 @@
 # Elektronska potvrda naloga (ovlaštena lica klijenta)
 
+> **Za sada isključeno (27.11.2026.)** – sektor mreža ne može objaviti `/potvrda/` prema van (nema WAF-a).
+> Nalog se zatvara dugmetom „Zatvori nalog” (vidi DOGOVORI.md). Kod ostaje u aplikaciji; da se uključi:
+> skinuti `hidden` s kartice „Ovlaštena lica” u `klijent.html`, otkomentarisati prikaz kartice „Slanje e-maila” u `sifarnici.html`
+> i u `nalog.html` vratiti odjeljak „Potvrda korisnika” (funkcije `popuniLica`, `prikaziPotvrdu`, `posaljiPotvrdu` su još tu).
+
 Završen nalog se e-mailom šalje **ovlaštenom licu klijenta**. Ono otvori link, pregleda nalog i klikne
 **„Potvrđujem nalog”** → nalog postaje **Završen**, a osoba dobije e-mail sa završnim PDF-om (sa upisanom potvrdom),
 koji može odštampati, potpisati i predati svojoj službi finansija. Ako nešto nije tačno, umjesto potvrde pošalje

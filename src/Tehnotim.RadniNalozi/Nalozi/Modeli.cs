@@ -120,6 +120,10 @@ public class NalogDetalji
     public DateTime? Potvrdjeno { get; set; }
     public string? PotvrdaPrimjedba { get; set; }
     public DateTime? PotvrdaPrimjedbaVrijeme { get; set; }
+    // Zatvaranje dugmetom
+    public DateTime? Zatvoreno { get; set; }
+    public string? Zatvorio { get; set; }
+    public DateTime? SdpTiketZatvoren { get; set; }
     public DateTime Kreirano { get; set; }
     public string? Kreirao { get; set; }
     public DateTime? Izmijenjeno { get; set; }

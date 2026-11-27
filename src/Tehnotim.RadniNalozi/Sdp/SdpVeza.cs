@@ -43,6 +43,13 @@ public static class SdpVeza
             Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("input_data", JsonSerializer.Serialize(inputData))])
         });
 
+    /// <summary>PUT s poljem input_data (JSON) kao obrazac – izmjena i zatvaranje zahtjeva.</summary>
+    public static Task<JsonElement> PutAsync(string cs, string putanja, object inputData) =>
+        PosaljiAsync(cs, url => new HttpRequestMessage(HttpMethod.Put, url + putanja)
+        {
+            Content = new FormUrlEncodedContent([new KeyValuePair<string, string>("input_data", JsonSerializer.Serialize(inputData))])
+        });
+
     /// <summary>Slanje fajla (multipart) – prilog tiketu. SDP v3: PUT /api/v3/requests/{id}/upload, polje input_file.</summary>
     public static Task<JsonElement> PostFajlAsync(string cs, HttpMethod metod, string putanja, byte[] sadrzaj, string imeFajla, string polje)
     {

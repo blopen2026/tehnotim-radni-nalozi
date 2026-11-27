@@ -2,10 +2,19 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-11-27 – Zatvaranje naloga dugmetom (potvrda e-mailom isključena)
+
+- Sektor mreža nema WAF, pa `/potvrda/` neće biti objavljena prema van. **Za sada nema e-maila ovlaštenom licu**: nalog se zatvara dugmetom **„Zatvori nalog”** (u nalogu iz tiketa: „Zatvori nalog i tiket”).
+- Zatvaranje: nalog → Završen; nalog iz tiketa: napomena + PDF u tiket, upiše se rješenje (opis intervencije) i tiket se zatvara u SDP-u. Ako zatvaranje tiketa ne uspije, nalog ostaje zatvoren, a dugme „Ponovo zatvori tiket” pokušava ponovo.
+- Pretpostavke (korisnik nije odgovorio, može se promijeniti): zatvara **serviser i kancelarija**; tiket dobija status **Zatvoren (Closed)**, šifra zatvaranja „Success” ako postoji.
+- Zatvoren nalog mijenja samo kancelarija; kancelarija ga može **vratiti u rad** (tiket u SDP-u se tada ne dira).
+- Kod potvrde e-mailom (ovlaštena lica, SMTP, stranica `/potvrda/`) ostaje u aplikaciji, ali je sakriven; uključuje se kad bude pristupa izvana. Na PDF-u se red „Elektronska potvrda korisnika” prikazuje samo ako je nalog slan na potvrdu.
+- Polje „Ovjera korisnika usluge (potpis korisnika)” na PDF-u ostaje za ručni potpis za službu finansija.
+
 ## 2026-11-27 – Produkcioni server
 
 - Aplikacija ide na server gdje radi SDP (Windows Server 2022 Standard, u domenu). SDP drži port 443, pa aplikacija radi kao poseban IIS sajt na **8443 (HTTPS)**; SDP se ne dira.
-- Izvana se objavljuje samo `/potvrda/` (sektor mreža); baza SQL Server 2022 Express, podaci i backup na disku D.
+- Prema van se ništa ne objavljuje (nema WAF-a); baza SQL Server 2022 Express, podaci i backup na disku D.
 - Prvo probni rad bez veze sa SDP-om; podaci se ponovo uvoze iz Excela. Uputstvo: `docs/korak-12d-produkcioni-server.md`.
 
 ## 2026-11-27 – Potvrda naloga (umjesto potpisa klijenta na daljinu)

@@ -121,6 +121,44 @@ public static class NaloziApi
         nalozi.MapPost("", (NalogUnos u, ClaimsPrincipal ko, IWebHostEnvironment env) => Sacuvaj(connectionString, null, u, ko, env.WebRootPath));
         nalozi.MapPut("/{id:int}", (int id, NalogUnos u, ClaimsPrincipal ko, IWebHostEnvironment env) => Sacuvaj(connectionString, id, u, ko, env.WebRootPath));
 
+        // Zatvaranje naloga dugmetom: nalog → Završen; nalog iz tiketa: napomena + PDF u tiket i tiket se zatvara.
+        // Ponovni poziv na zatvorenom nalogu samo ponovi ono što u tiketu nije uspjelo.
+        nalozi.MapPost("/{id:int}/zatvori", async (int id, ClaimsPrincipal ko, IWebHostEnvironment env) =>
+        {
+            var korisnik = ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name;
+            var n = await UcitajAsync(connectionString, id);
+            if (n is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
+            if (n.Zatvoreno is null)
+            {
+                if (string.IsNullOrWhiteSpace(n.Status)) return Results.BadRequest(new { greska = "Prije zatvaranja izaberite status naloga i sačuvajte nalog." });
+                if (string.IsNullOrWhiteSpace(n.OpisIntervencije)) return Results.BadRequest(new { greska = "Prije zatvaranja upišite opis izvršene intervencije i sačuvajte nalog." });
+                await using var c = new SqlConnection(connectionString);
+                var red = await c.ExecuteAsync(@"
+                    UPDATE dbo.Nalog SET Zatvoreno = SYSDATETIME(), Zatvorio = @korisnik, Faza = 'zavrsen', Izmijenjeno = SYSUTCDATETIME(), Izmijenio = @korisnik
+                    WHERE Id = @id AND Zatvoreno IS NULL", new { id, korisnik });
+                if (red > 0)
+                    await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@id, @korisnik, N'Nalog zatvoren')", new { id, korisnik });
+            }
+            var poruke = await Tehnotim.RadniNalozi.Sdp.PovratUTiket.PosaljiAsync(connectionString, id, env.WebRootPath, korisnik);
+            poruke.AddRange(await Tehnotim.RadniNalozi.Sdp.PovratUTiket.ZatvoriTiketAsync(connectionString, id, korisnik));
+            return Results.Ok(new { tiket = poruke });
+        });
+
+        // Vraćanje zatvorenog naloga u rad (kancelarija); tiket u SDP-u ostaje kakav jeste
+        nalozi.MapPost("/{id:int}/otvori", async (int id, ClaimsPrincipal ko) =>
+        {
+            var korisnik = ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name;
+            await using var c = new SqlConnection(connectionString);
+            var red = await c.ExecuteAsync(@"
+                UPDATE dbo.Nalog SET Zatvoreno = NULL, Zatvorio = NULL, SdpNapomenaZavrsen = NULL,
+                       Faza = CASE WHEN PotpisKorisnik IS NOT NULL OR Potvrdjeno IS NOT NULL THEN 'zavrsen' ELSE 'u_radu' END,
+                       Izmijenjeno = SYSUTCDATETIME(), Izmijenio = @korisnik
+                WHERE Id = @id AND Zatvoreno IS NOT NULL", new { id, korisnik });
+            if (red == 0) return Results.BadRequest(new { greska = "Nalog nije zatvoren." });
+            await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@id, @korisnik, N'Nalog vraćen u rad')", new { id, korisnik });
+            return Results.Ok();
+        }).RequireAuthorization(Politike.Kancelarija);
+
         // Ručno ponavljanje upisa u tiket (ako automatski upis pri čuvanju nije uspio)
         nalozi.MapPost("/{id:int}/tiket", async (int id, ClaimsPrincipal ko, IWebHostEnvironment env) =>
             Results.Ok(await Tehnotim.RadniNalozi.Sdp.PovratUTiket.PosaljiAsync(connectionString, id, env.WebRootPath,
@@ -137,7 +175,7 @@ public static class NaloziApi
                    Naplata, Ugovor, Garancija, UredjajPredao, NosilacKorisnikId, NosilacIme, OpisZahtjeva, OpisIntervencije,
                    PutDestinacija, KmTamo, KmNazad, TarifaKm, PutniIznos, Status, Intervencija, PotpisKasnije,
                    PotpisServiser, PotpisKorisnik, PotvrdaLiceId, PotvrdaIme, PotvrdaEmail, PotvrdaKod, PotvrdaPoslano, PotvrdaPoslao,
-                   Potvrdjeno, PotvrdaPrimjedba, PotvrdaPrimjedbaVrijeme, Kreirano, Kreirao, Izmijenjeno, Izmijenio
+                   Potvrdjeno, PotvrdaPrimjedba, PotvrdaPrimjedbaVrijeme, Zatvoreno, Zatvorio, SdpTiketZatvoren, Kreirano, Kreirao, Izmijenjeno, Izmijenio
             FROM dbo.Nalog WHERE Id = @id", new { id });
         if (n is null) return null;
 
@@ -168,6 +206,7 @@ public static class NaloziApi
         public DateTime? PotvrdaPoslano { get; set; }
         public DateTime? Potvrdjeno { get; set; }
         public DateTime? PotvrdaPrimjedbaVrijeme { get; set; }
+        public DateTime? Zatvoreno { get; set; }
     }
 
     private class UredjajStanje
@@ -246,14 +285,14 @@ public static class NaloziApi
         {
             potvrda = await c.QuerySingleOrDefaultAsync<PostojecaPotvrda>(@"
                 SELECT Broj, CAST(CASE WHEN PotpisKorisnik IS NULL THEN 0 ELSE 1 END AS bit) AS ImaPotpis,
-                       PotvrdaPoslano, Potvrdjeno, PotvrdaPrimjedbaVrijeme
+                       PotvrdaPoslano, Potvrdjeno, PotvrdaPrimjedbaVrijeme, Zatvoreno
                 FROM dbo.Nalog WITH (UPDLOCK) WHERE Id = @id", new { id }, tx);
             if (potvrda is null) return Results.NotFound(new { greska = "Nalog ne postoji." });
             postojeciBroj = potvrda.Broj;
             imaPotpisKorisnika = potvrda.ImaPotpis;
-            // Nalog koji je korisnik potvrdio mijenja samo kancelarija (izmjena se upisuje u istoriju)
-            if (potvrda.Potvrdjeno is not null && !ko.IsInRole(Uloge.Kancelarija) && !ko.IsInRole(Uloge.Administrator))
-                return Greska("Korisnik je potvrdio ovaj nalog, pa ga može mijenjati samo kancelarija.");
+            // Zatvoren ili potvrđen nalog mijenja samo kancelarija (izmjena se upisuje u istoriju)
+            if ((potvrda.Potvrdjeno is not null || potvrda.Zatvoreno is not null) && !ko.IsInRole(Uloge.Kancelarija) && !ko.IsInRole(Uloge.Administrator))
+                return Greska("Nalog je zatvoren, pa ga može mijenjati samo kancelarija (ili ga kancelarija vrati u rad).");
         }
 
         // Klijent
@@ -363,7 +402,7 @@ public static class NaloziApi
             ? Math.Round(((u.KmTamo ?? 0) + (u.KmNazad ?? 0)) * t, 2) : null;
         // Faza: završen = korisnik potvrdio (link iz e-maila) ili potpisao na ekranu; čeka potvrdu = poslano, a još nije potvrđeno
         var cekaPotvrdu = potvrda is { PotvrdaPoslano: not null, Potvrdjeno: null, PotvrdaPrimjedbaVrijeme: null };
-        var faza = potpisKorisnik is not null || potvrda?.Potvrdjeno is not null ? "zavrsen"
+        var faza = potpisKorisnik is not null || potvrda?.Potvrdjeno is not null || potvrda?.Zatvoreno is not null ? "zavrsen"
                  : cekaPotvrdu || u.PotpisKasnije ? "ceka_potpis" : "u_radu";
         var potpisKasnije = potpisKorisnik is null && u.PotpisKasnije;
 
@@ -453,7 +492,8 @@ public static class NaloziApi
 
         // Istorija
         await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)",
-            new { nalogId, korisnik, opis = id is null ? "Nalog kreiran" : potvrda?.Potvrdjeno is not null ? "Nalog izmijenjen nakon potvrde korisnika" : "Nalog izmijenjen" }, tx);
+            new { nalogId, korisnik, opis = id is null ? "Nalog kreiran" : potvrda?.Potvrdjeno is not null ? "Nalog izmijenjen nakon potvrde korisnika"
+                       : potvrda?.Zatvoreno is not null ? "Nalog izmijenjen nakon zatvaranja" : "Nalog izmijenjen" }, tx);
         var potpisPromjena = !imaPotpisKorisnika && potpisKorisnik is not null ? "Korisnik usluge potpisao nalog"
                            : imaPotpisKorisnika && potpisKorisnik is null ? "Potpis korisnika uklonjen" : null;
         if (potpisPromjena is not null)

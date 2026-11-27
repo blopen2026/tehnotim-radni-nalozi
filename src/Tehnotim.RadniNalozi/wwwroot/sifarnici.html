@@ -322,8 +322,8 @@ $('#post-btn').onclick = async () => {
   ucitajTipove(); ucitajNosioce(); ucitajNumeraciju(); ucitajPostavke();
   if (jeAdmin) {
     $('#sdp-card').hidden = false;
-    $('#posta-card').hidden = false;
-    ucitajPostu();
+    // Slanje e-maila (potvrda naloga) – za sada isključeno; vratiti kad bude pristupa izvana
+    // $('#posta-card').hidden = false; ucitajPostu();
     const p = await ucitajSdp();
     if (p.url && p.kljucPostavljen) await ucitajSdpListe();
   }
