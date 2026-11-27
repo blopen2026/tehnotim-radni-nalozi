@@ -174,7 +174,7 @@ public static class PdfNaloga
         var g = XGraphics.FromPdfPage(strana);
         var y = Zaglavlje(g, firma, logo);
         var vrhTabele = y;
-        var dnoStrane = StranaH - Margina - 22;
+        var dnoStrane = StranaH - Margina - 26;
         var broj = 1;
 
         foreach (var b in blokovi)
@@ -203,26 +203,34 @@ public static class PdfNaloga
         g.Dispose();
     }
 
+    // Zaglavlje i podnožje prema memorandumu firme: logo lijevo, podaci firme desno (tirkizno), linija ispod;
+    // u podnožju linija i JIB / MB / žiro-račun u sredini.
+    private static readonly XColor Memorandum = XColor.FromArgb(0x20, 0x82, 0x93);
+    private static readonly XBrush MemorandumBoja = new XSolidBrush(Memorandum);
+    private static readonly XPen MemorandumLinija = new(Memorandum, 1.2);
+
     private static double Zaglavlje(XGraphics g, Postavke firma, byte[]? logo)
     {
-        var y = Margina;
+        var y = Margina - 8;
         if (logo is not null)
         {
             var img = XImage.FromStream(Tok(logo));
-            var h = 34.0;
+            var h = 28.0;
             var w = h * img.PixelWidth / img.PixelHeight;
-            g.DrawImage(img, Margina, y, w, h);
+            g.DrawImage(img, Margina, y + 3, w, h);
         }
-        var redovi = new[] { firma.NazivFirme, firma.Adresa, string.Join(" | ", new[] { firma.Email, firma.Web }.Where(s => !string.IsNullOrWhiteSpace(s))) }
+        var redovi = new[] { firma.NazivFirme, firma.Adresa, string.Join("  |  ", new[] { firma.Email, firma.Web }.Where(s => !string.IsNullOrWhiteSpace(s))) }
             .Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-        var f = F(7.5, true);
-        var ry = y + 2;
+        var f = F(8, true);
+        var ry = y + 1;
         foreach (var r in redovi)
         {
-            g.DrawString(r!, f, XBrushes.Black, StranaW - Margina - g.MeasureString(r, f).Width, ry, XStringFormats.TopLeft);
-            ry += 10;
+            g.DrawString(r!, f, MemorandumBoja, StranaW - Margina - g.MeasureString(r, f).Width, ry, XStringFormats.TopLeft);
+            ry += 11;
         }
-        return y + 44;
+        var linija = y + 38;
+        g.DrawLine(MemorandumLinija, Margina, linija, StranaW - Margina, linija);
+        return linija + 10;
     }
 
     private static void Podnozje(XGraphics g, Postavke firma, int strana, string brojNaloga)
@@ -231,16 +239,17 @@ public static class PdfNaloga
         if (!string.IsNullOrWhiteSpace(firma.Jib)) dijelovi.Add("JIB: " + firma.Jib);
         if (!string.IsNullOrWhiteSpace(firma.Mb)) dijelovi.Add("MB: " + firma.Mb);
         if (!string.IsNullOrWhiteSpace(firma.ZiroRacun)) dijelovi.Add("Žiro-račun: " + firma.ZiroRacun);
-        var tekst = string.Join("  I  ", dijelovi);
-        var f = F(6.5, true);
+        var tekst = string.Join("   I   ", dijelovi);
+        var f = F(7.5, true);
         var y = StranaH - Margina - 10;
+        g.DrawLine(MemorandumLinija, Margina, y - 4, StranaW - Margina, y - 4);
         if (tekst.Length > 0)
-            g.DrawString(tekst, f, XBrushes.Black, (StranaW - g.MeasureString(tekst, f).Width) / 2, y, XStringFormats.TopLeft);
+            g.DrawString(tekst, f, MemorandumBoja, (StranaW - g.MeasureString(tekst, f).Width) / 2, y, XStringFormats.TopLeft);
         if (strana > 1 || brojNaloga.Length > 0)
         {
             var oznaka = $"{brojNaloga} · str. {strana}";
             var fs = F(6.5);
-            g.DrawString(oznaka, fs, XBrushes.Gray, StranaW - Margina - g.MeasureString(oznaka, fs).Width, y + 10, XStringFormats.TopLeft);
+            g.DrawString(oznaka, fs, XBrushes.Gray, StranaW - Margina - g.MeasureString(oznaka, fs).Width, y + 11, XStringFormats.TopLeft);
         }
     }
 

@@ -2,6 +2,12 @@
 
 Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuju na vrh, s datumom.
 
+## 2026-11-27 – Novi logo i memorandum
+
+- Novi logo iz memoranduma firme (Memorandum_Tehnotim_NOVI1.docx): `wwwroot/img/logo.png` (tirkizni, za PDF) i `logo-svijetli.png` (bijeli s tirkiznim „TIM”, za tamnu traku aplikacije).
+- PDF naloga (štampa, PDF, mail, prilog u tiketu) ima zaglavlje i podnožje kao memorandum: logo lijevo, podaci firme desno tirkiznom bojom (#208293), linija ispod; u podnožju linija i JIB / MB / žiro-račun.
+- Podaci u zaglavlju/podnožju dolaze iz Šifarnici → Podaci firme (treba ih uskladiti s memorandumom).
+
 ## 2026-11-02 – Uvoz uređaja
 
 - Uvoz uređaja iz Excela (popis osnovnih sredstava klijenta). Uvoze se: računari, laptopi, monitori, štampači, multifunkcijski, kopir, skeneri i **UPS**; serveri, mrežna oprema, telefoni, softver ne.
