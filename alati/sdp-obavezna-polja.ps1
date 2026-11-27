@@ -12,30 +12,27 @@ $adresa = $adresa.TrimEnd('/')
 $kljuc = Read-Host "API ključ (isti kao u Šifarnici -> Veza sa ServiceDesk Plus)"
 $primjeri = Read-Host "Brojevi nekoliko ZATVORENIH tiketa (npr. Printing, Sistem, Hardver), odvojeni zarezom"
 
-# Testni SDP ima samopotpisan certifikat; SDP 15200 traži TLS 1.3 (isto kao u koraku 13)
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-[Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-
+# Poziva se preko curl.exe: Windows PowerShell 5.1 ne uspostavlja TLS 1.3 vezu sa SDP-om 15200
+# („underlying connection was closed”), a curl.exe radi; -k jer testni SDP ima samopotpisan certifikat.
 $izlaz = "C:\Instalacija\sdp-polja"
 New-Item $izlaz -ItemType Directory -Force | Out-Null
 Remove-Item "$izlaz\*" -Force -ErrorAction SilentlyContinue
-$zaglavlja = @{ authtoken = $kljuc; Accept = "application/vnd.manageengine.sdp.v3+json" }
 
 function Uzmi($putanja, $fajl, $inputData) {
+    $argumenti = @('-k', '-s', '-o', "$izlaz\$fajl", '-w', '%{http_code}',
+                   '-H', "authtoken: $kljuc", '-H', 'Accept: application/vnd.manageengine.sdp.v3+json')
+    # input_data se kodira ovdje (PowerShell 5.1 kvari navodnike u argumentima za curl.exe)
     $url = "$adresa$putanja"
     if ($inputData) { $url += "?input_data=" + [uri]::EscapeDataString($inputData) }
-    try {
-        $odg = Invoke-WebRequest -Uri $url -Headers $zaglavlja -UseBasicParsing
-        [IO.File]::WriteAllText("$izlaz\$fajl", $odg.Content, [Text.Encoding]::UTF8)
+    $kod = & curl.exe @argumenti $url
+    if ($kod -eq '200') {
         Write-Host "OK     $putanja"
-        return ($odg.Content | ConvertFrom-Json)
-    } catch {
-        $poruka = $_.Exception.Message
-        if ($_.ErrorDetails) { $poruka += " " + $_.ErrorDetails.Message }
-        Add-Content "$izlaz\greske.txt" "$putanja : $poruka"
-        Write-Host "NEMA   $putanja"
-        return $null
+        try { return (Get-Content "$izlaz\$fajl" -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { return $null }
     }
+    $tekst = if (Test-Path "$izlaz\$fajl") { Get-Content "$izlaz\$fajl" -Raw -Encoding UTF8 } else { "" }
+    Add-Content "$izlaz\greske.txt" "$putanja : HTTP $kod $tekst"
+    Write-Host "NEMA   $putanja (HTTP $kod)"
+    return $null
 }
 
 $lista = '{"list_info":{"row_count":100}}'
