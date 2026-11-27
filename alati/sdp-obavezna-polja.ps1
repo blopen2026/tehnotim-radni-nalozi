@@ -1,4 +1,4 @@
-# Izvlači iz ServiceDesk Plus-a podatke potrebne za zatvaranje tiketa iz aplikacije (PLAN 2b):
+﻿# Izvlači iz ServiceDesk Plus-a podatke potrebne za zatvaranje tiketa iz aplikacije (PLAN 2b):
 # polja zahtjeva (i dodatna UDF polja), šablone zahtjeva, pravila zatvaranja i primjere zatvorenih tiketa.
 # Ništa ne mijenja u SDP-u – samo čita (GET).
 #
