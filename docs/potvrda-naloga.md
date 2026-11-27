@@ -41,21 +41,23 @@ Pri prvom pokretanju izvrši se skripta `010_potvrda_naloga.sql`.
 
 ### Jednom: stranica potvrde bez Windows prijave
 
-Na sajtu je anonimni pristup isključen, pa ga treba uključiti **samo za putanju `/potvrda`**:
+Na sajtu se uključi **i anonimni pristup** (uz Windows prijavu, koja ostaje uključena). Prijavu tada traži sama aplikacija:
+sve osim `/potvrda/…` i dalje traži Windows prijavu (aplikacija odgovori 401, a IIS pokrene Windows prijavu).
+
+Napomena: anonimni pristup se **ne** uključuje posebno za putanju `RadniNalozi/potvrda` – IIS tada tu putanju ne šalje aplikaciji
+nego traži fajl na disku (greška 404.0, handler StaticFile).
 
 ```powershell
 Import-Module WebAdministration
-Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location 'RadniNalozi/potvrda' `
-  -Filter 'system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $true
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location 'RadniNalozi' -Filter 'system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $true
 ```
 
-Provjera (mora vratiti stranicu „Link više ne važi”, bez pitanja za lozinku):
+Provjera:
 
 ```powershell
-(Invoke-WebRequest http://localhost/potvrda/proba -UseBasicParsing).StatusCode    # 200
+curl.exe -s -o NUL -w "%{http_code}`n" http://localhost/potvrda/proba    # 200 – stranica „Link više ne važi”
+curl.exe -s -o NUL -w "%{http_code}`n" http://localhost/                 # 401 – ostatak traži prijavu
 ```
-
-Ostatak aplikacije i dalje traži Windows prijavu.
 
 ## Podešavanje u aplikaciji
 
