@@ -23,6 +23,7 @@
       <label class="f"><span>Domenski nalog</span><input id="f-nalog" class="mono" placeholder="TEHNOTIM\marko"></label>
       <label class="f"><span>Ime i prezime</span><input id="f-ime"></label>
       <label class="f"><span>E-mail</span><input id="f-email" type="email"></label>
+      <label class="f"><span>Ime u SDP-u („Inženjer / Tehničar”)</span><input id="f-sdpime" placeholder="prazno = kao ime i prezime"></label>
       <label class="f"><span>Uloga</span>
         <select id="f-uloga">
           <option value="serviser">Serviser – pravi i uređuje naloge</option>
@@ -67,6 +68,7 @@ function uredi(k) {
   $('#f-nalog').value = k?.korisnickiNalog || '';
   $('#f-ime').value = k?.imePrezime || '';
   $('#f-email').value = k?.email || '';
+  $('#f-sdpime').value = k?.sdpIme || '';
   $('#f-uloga').value = k?.uloga || 'serviser';
   $('#f-aktivan').checked = k ? k.aktivan : true;
   $('#f-nosilac').checked = k ? k.nosilacNaloga : true;
@@ -82,6 +84,7 @@ $('#sacuvaj').onclick = async () => {
     korisnickiNalog: $('#f-nalog').value.trim(),
     imePrezime: $('#f-ime').value.trim(),
     email: $('#f-email').value.trim(),
+    sdpIme: $('#f-sdpime').value.trim(),
     uloga: $('#f-uloga').value,
     aktivan: $('#f-aktivan').checked,
     nosilacNaloga: $('#f-nosilac').checked,

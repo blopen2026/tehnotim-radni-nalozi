@@ -104,51 +104,88 @@ public static class PovratUTiket
     }
 
     /// <summary>
-    /// Zatvara tiket iz kojeg je nalog napravljen (dugme „Zatvori nalog”): upiše rješenje (opis intervencije), pa zatvori zahtjev.
-    /// Ako SDP traži šifru zatvaranja, prvo se proba „Success”, pa bez nje.
+    /// Zatvara tiket iz kojeg je nalog napravljen (dugme „Zatvori nalog”), kao što to radi tehničar u SDP-u:
+    /// popuni obavezna polja (Inženjer / Tehničar; za Printing i serijski broj i brojač), upiše rješenje
+    /// i prebaci tiket u Closed ili Resolved. Ako za isti tiket postoji još nezatvoren nalog, tiket ostaje otvoren
+    /// dok se ne zatvori i posljednji nalog.
     /// </summary>
-    /// <summary>
-    /// Za sada isključeno: SDP pri zatvaranju traži obavezna polja (ko je servisirao, serijski broj, brojač za printing…).
-    /// Kad se ta polja povežu s podacima naloga, ovdje staviti true (i ZATVARA_TIKET u nalog.html).
-    /// </summary>
-    public const bool ZatvaranjeTiketaUkljuceno = false;
-
-    public static async Task<List<PorukaTiketa>> ZatvoriTiketAsync(string cs, int nalogId, string? korisnik)
+    public static async Task<List<PorukaTiketa>> ZatvoriTiketAsync(string cs, int nalogId, string? korisnik, string? statusTiketa)
     {
         var poruke = new List<PorukaTiketa>();
-        if (!ZatvaranjeTiketaUkljuceno) return poruke;
         var n = await NaloziApi.UcitajAsync(cs, nalogId);
         if (n?.SdpZahtjevId is not long tiket || n.Zatvoreno is null || n.SdpTiketZatvoren is not null) return poruke;
+        var resolved = statusTiketa == "Resolved";
 
         await using var c = new SqlConnection(cs);
         async Task Istorija(string opis) =>
             await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@nalogId, @korisnik, @opis)", new { nalogId, korisnik, opis });
 
-        // Rješenje (resolution) – neki SDP-ovi ga traže prije zatvaranja; greška ovdje ne zaustavlja zatvaranje
-        var rjesenje = $"Radni nalog {H(n.Broj)}: {H(n.OpisIntervencije)}<br><i>Upisala aplikacija Radni nalozi.</i>";
-        try { await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}", new { request = new { resolution = new { content = rjesenje } } }); }
-        catch (SdpGreska) { }
-
-        var komentar = $"Zatvoreno iz aplikacije Radni nalozi – nalog {n.Broj} ({korisnik}).";
-        string? greska = null;
-        foreach (var info in new object[]
-                 {
-                     new { requester_ack_resolution = true, requester_ack_comments = komentar, closure_comments = komentar, closure_code = new { name = "Success" } },
-                     new { requester_ack_resolution = true, requester_ack_comments = komentar, closure_comments = komentar }
-                 })
+        // Svi nalozi ovog tiketa (serviseri ponekad za isti tiket pišu dva naloga)
+        var nalozi = (await c.QueryAsync<(int Id, string Broj, DateTime? Zatvoreno)>(@"
+            SELECT Id, Broj, Zatvoreno FROM dbo.Nalog WHERE SdpZahtjevId = @tiket ORDER BY Id", new { tiket })).ToList();
+        var otvoreni = nalozi.Where(x => x.Zatvoreno is null).Select(x => x.Broj).ToList();
+        if (otvoreni.Count > 0)
         {
-            try
-            {
-                await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}/close", new { request = new { closure_info = info } });
-                await c.ExecuteAsync("UPDATE dbo.Nalog SET SdpTiketZatvoren = SYSDATETIME() WHERE Id = @nalogId", new { nalogId });
-                await Istorija($"Tiket {tiket} zatvoren u ServiceDesk Plus-u");
-                poruke.Add(new(true, $"Tiket {tiket} je zatvoren u ServiceDesk Plus-u."));
-                return poruke;
-            }
-            catch (SdpGreska ex) { greska = ex.Message; }
+            poruke.Add(new(true, $"Tiket {tiket} ostaje otvoren dok se ne zatvori i nalog {string.Join(", ", otvoreni)}."));
+            return poruke;
         }
-        await Istorija($"Tiket {tiket} nije zatvoren: {greska}");
-        poruke.Add(new(false, $"Tiket {tiket} nije zatvoren: {greska} Nalog je zatvoren – tiket zatvorite u SDP-u ili kliknite „Ponovo zatvori tiket”."));
+
+        // Inženjer / Tehničar = nosilac naloga (ime iz SDP-a ako je upisano kod korisnika)
+        var tehnicar = await c.ExecuteScalarAsync<string?>(@"
+            SELECT COALESCE(NULLIF(k.SdpIme, ''), k.ImePrezime) FROM dbo.Nalog n JOIN dbo.Korisnik k ON k.Id = n.NosilacKorisnikId WHERE n.Id = @nalogId",
+            new { nalogId }) ?? n.NosilacIme;
+        if (string.IsNullOrWhiteSpace(tehnicar))
+        {
+            poruke.Add(new(false, $"Tiket {tiket} nije zatvoren: nalog nema nosioca (polje „Inženjer / Tehničar” u SDP-u je obavezno)."));
+            return poruke;
+        }
+
+        // Uređaji sa svih naloga tiketa
+        var svi = new List<NalogDetalji>();
+        foreach (var x in nalozi) if (await NaloziApi.UcitajAsync(cs, x.Id) is { } d) svi.Add(d);
+        var uredjaji = svi.SelectMany(d => d.Uredjaji).Where(u => !string.IsNullOrWhiteSpace(u.SerijskiBroj)).ToList();
+        var serijski = uredjaji.Select(u => u.SerijskiBroj!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var brojac = uredjaji.Select(u => (u.Kolor ?? 0) + (u.CB ?? 0)).FirstOrDefault(b => b > 0);
+
+        // Šablon tiketa: Printing traži i serijski broj i brojač
+        string? sablon = null;
+        try { sablon = SdpVeza.Tekst((await SdpVeza.GetAsync(cs, $"/api/v3/requests/{tiket}")).GetProperty("request").GetProperty("template"), "name"); }
+        catch (Exception ex) when (ex is SdpGreska or KeyNotFoundException or InvalidOperationException) { }
+        var printing = sablon?.Contains("Printing", StringComparison.OrdinalIgnoreCase) == true;
+
+        var udf = new Dictionary<string, object> { ["udf_pick_602"] = new { name = tehnicar } };
+        if (printing)
+        {
+            var sn = serijski.Count == 0 ? "0" : string.Join(", ", serijski);
+            udf["udf_sline_301"] = sn.Length > 250 ? sn[..250] : sn;
+            udf["udf_long_303"] = brojac.ToString();
+        }
+
+        var rjesenje = string.Join("<br><br>", svi.Select(d =>
+                           $"<b>Radni nalog {H(d.Broj)}</b> ({H(d.NosilacIme)}): {H(d.OpisIntervencije)}"
+                           + string.Concat(d.Uredjaji.Where(u => u.Kolor is not null || u.CB is not null)
+                               .Select(u => $"<br>Brojač {H(u.SerijskiBroj ?? u.Model)}: {(u.Kolor ?? 0) + (u.CB ?? 0)}"))))
+                     + "<br><i>Upisala aplikacija Radni nalozi.</i>";
+        try
+        {
+            await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}", new { request = new { udf_fields = udf, resolution = new { content = rjesenje } } });
+            var komentar = $"Zatvoreno iz aplikacije Radni nalozi – {string.Join(", ", nalozi.Select(x => x.Broj))} ({korisnik}).";
+            if (resolved)
+                await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}", new { request = new { status = new { name = "Resolved" } } });
+            else
+                await SdpVeza.PutAsync(cs, $"/api/v3/requests/{tiket}/close",
+                    new { request = new { closure_info = new { requester_ack_resolution = false, closure_comments = komentar } } });
+
+            await c.ExecuteAsync("UPDATE dbo.Nalog SET SdpTiketZatvoren = SYSDATETIME() WHERE SdpZahtjevId = @tiket", new { tiket });
+            var stanje = resolved ? "riješen (Resolved)" : "zatvoren (Closed)";
+            await Istorija($"Tiket {tiket} {stanje} u ServiceDesk Plus-u; Inženjer / Tehničar: {tehnicar}" + (printing ? $", SN: {udf["udf_sline_301"]}, brojač: {brojac}" : ""));
+            poruke.Add(new(true, $"Tiket {tiket} je {stanje} u ServiceDesk Plus-u."));
+        }
+        catch (SdpGreska ex)
+        {
+            await Istorija($"Tiket {tiket} nije zatvoren: {ex.Message}");
+            poruke.Add(new(false, $"Tiket {tiket} nije zatvoren: {ex.Message} Nalog je zatvoren – tiket zatvorite u SDP-u ili kliknite „Ponovo zatvori tiket”."));
+        }
         return poruke;
     }
 }

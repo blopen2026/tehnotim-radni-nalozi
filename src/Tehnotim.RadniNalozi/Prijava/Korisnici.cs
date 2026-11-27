@@ -11,7 +11,8 @@ public record Korisnik(
     string Uloga,
     bool Aktivan,
     DateTime? ZadnjaPrijava,
-    bool NosilacNaloga)
+    bool NosilacNaloga,
+    string? SdpIme)
 {
     /// <summary>Sektori kojima korisnik pripada (Id-jevi iz dbo.Sektor).</summary>
     public int[] Sektori { get; init; } = [];
@@ -24,12 +25,13 @@ public record KorisnikUnos(
     string Uloga,
     bool Aktivan,
     bool NosilacNaloga = true,
-    int[]? Sektori = null);
+    int[]? Sektori = null,
+    string? SdpIme = null);
 
 /// <summary>Rad s tabelom dbo.Korisnik.</summary>
 public class Korisnici(string connectionString)
 {
-    private const string Kolone = "Id, KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, ZadnjaPrijava, NosilacNaloga";
+    private const string Kolone = "Id, KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, ZadnjaPrijava, NosilacNaloga, SdpIme";
 
     private static Korisnik Procitaj(SqlDataReader r) => new(
         r.GetInt32(0),
@@ -39,7 +41,8 @@ public class Korisnici(string connectionString)
         r.GetString(4),
         r.GetBoolean(5),
         r.IsDBNull(6) ? null : r.GetDateTime(6),
-        r.GetBoolean(7));
+        r.GetBoolean(7),
+        r.IsDBNull(8) ? null : r.GetString(8));
 
     /// <summary>
     /// Poziva se pri svakom zahtjevu prijavljenog korisnika. Ako u tabeli još nema nikoga,
@@ -109,8 +112,8 @@ public class Korisnici(string connectionString)
         }
 
         var sql = id is null
-            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, NosilacNaloga) OUTPUT INSERTED.Id VALUES (@nalog, @ime, @email, @uloga, @aktivan, @nosilac)"
-            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan, NosilacNaloga = @nosilac OUTPUT INSERTED.Id WHERE Id = @id";
+            ? "INSERT INTO dbo.Korisnik (KorisnickiNalog, ImePrezime, Email, Uloga, Aktivan, NosilacNaloga, SdpIme) OUTPUT INSERTED.Id VALUES (@nalog, @ime, @email, @uloga, @aktivan, @nosilac, @sdpIme)"
+            : "UPDATE dbo.Korisnik SET KorisnickiNalog = @nalog, ImePrezime = @ime, Email = @email, Uloga = @uloga, Aktivan = @aktivan, NosilacNaloga = @nosilac, SdpIme = @sdpIme OUTPUT INSERTED.Id WHERE Id = @id";
         int korisnikId;
         await using (var cmd = new SqlCommand(sql, conn, tx))
         {
@@ -120,6 +123,7 @@ public class Korisnici(string connectionString)
             cmd.Parameters.AddWithValue("@uloga", u.Uloga);
             cmd.Parameters.AddWithValue("@aktivan", u.Aktivan);
             cmd.Parameters.AddWithValue("@nosilac", u.NosilacNaloga);
+            cmd.Parameters.AddWithValue("@sdpIme", string.IsNullOrWhiteSpace(u.SdpIme) ? DBNull.Value : (object)u.SdpIme.Trim());
             cmd.Parameters.Add("@id", SqlDbType.Int).Value = (object?)id ?? DBNull.Value;
             var rez = await cmd.ExecuteScalarAsync();
             if (rez is null) { await tx.RollbackAsync(); return "Korisnik više ne postoji."; }

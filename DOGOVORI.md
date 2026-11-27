@@ -7,7 +7,10 @@ Ovaj fajl se čita na početku svakog rada na projektu. Novi dogovori se dopisuj
 - Sektor mreža nema WAF, pa `/potvrda/` neće biti objavljena prema van. **Za sada nema e-maila ovlaštenom licu**: nalog se zatvara dugmetom **„Zatvori nalog”** (u nalogu iz tiketa: „Zatvori nalog i tiket”).
 - Zatvaranje: nalog → Završen; nalog iz tiketa: napomena + PDF u tiket, upiše se rješenje (opis intervencije) i tiket se zatvara u SDP-u. Ako zatvaranje tiketa ne uspije, nalog ostaje zatvoren, a dugme „Ponovo zatvori tiket” pokušava ponovo.
 - Pretpostavka (može se promijeniti): zatvara **serviser i kancelarija**.
-- **Zatvaranje tiketa u SDP-u je za sada isključeno**: SDP pri zatvaranju traži obavezna polja (ko je servisirao, serijski broj, brojač za printing). Tiket se zatvara ručno u SDP-u; aplikacija upisuje napomenu + PDF. Kasnije: obavezna polja popunjavati iz naloga (PLAN 2b).
+- Zatvaranje tiketa u SDP-u (dopuna istog dana): aplikacija popuni obavezna polja kao tehničar – **Inženjer / Tehničar** (`udf_pick_602`) = nosilac naloga
+  (ili „Ime u SDP-u” kod korisnika, ako se razlikuje); za **Printing template** i **Serijski broj** (`udf_sline_301`, svi SN sa naloga tiketa, odvojeni zarezom; bez uređaja „0”)
+  i **Counter** (`udf_long_303`, brojač prvog uređaja; bez brojača „0”); upiše rješenje (opisi intervencija i brojači) i prebaci tiket u **Closed** (podrazumijevano) ili **Resolved** – bira se pri zatvaranju.
+- Više naloga za isti tiket: tiket se zatvara tek kad se zatvori **posljednji** nalog; u rješenje idu svi nalozi.
 - Zatvoren nalog mijenja samo kancelarija; kancelarija ga može **vratiti u rad** (tiket u SDP-u se tada ne dira).
 - Kod potvrde e-mailom (ovlaštena lica, SMTP, stranica `/potvrda/`) ostaje u aplikaciji, ali je sakriven; uključuje se kad bude pristupa izvana. Na PDF-u se red „Elektronska potvrda korisnika” prikazuje samo ako je nalog slan na potvrdu.
 - Polje „Ovjera korisnika usluge (potpis korisnika)” na PDF-u ostaje za ručni potpis za službu finansija.

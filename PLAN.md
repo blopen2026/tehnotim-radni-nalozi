@@ -47,7 +47,7 @@ Ideje za poslije testne faze (redoslijed se dogovara; prijedlog: prvo 1, 2, 7):
 - [ ] 1. Rad sa telefona na terenu: forma prilagođena telefonu, „instalacija” na početni ekran (PWA), rad bez interneta (nalog se pošalje kad se veza vrati)
 - [ ] 2. Potvrda naloga na daljinu: ovlaštena lica klijenta, e-mail s linkom → potvrda ili primjedba – urađeno, ali **isključeno** (nema pristupa izvana): `docs/potvrda-naloga.md`
       Umjesto toga (2026-11-27): dugme „Zatvori nalog” – nalog Završen, napomena + PDF u tiket; čeka probu.
-- [ ] 2b. Zatvaranje tiketa u SDP-u iz aplikacije – kod postoji, isključen: SDP pri zatvaranju traži obavezna polja
+- [ ] 2b. Zatvaranje tiketa u SDP-u iz aplikacije – urađeno (obavezna polja iz naloga, Closed/Resolved, više naloga po tiketu), čeka probu. Bilo isključeno jer SDP pri zatvaranju traži obavezna polja
       (ko je servisirao, serijski broj, brojač za printing…). Treba: spisak obaveznih polja po šablonu/sektoru → popunjavanje iz naloga.
       Iz SDP-a (27.11.2026., alati/sdp-obavezna-polja.ps1): `udf_pick_602` „Inženjer / Tehničar” (lista imena, svi sektori),
       Printing template još `udf_sline_301` „Serijski broj” i `udf_long_303` „Counter” (bez uređaja upisuju „0”).

@@ -123,7 +123,7 @@ public static class NaloziApi
 
         // Zatvaranje naloga dugmetom: nalog → Završen; nalog iz tiketa: napomena + PDF u tiket i tiket se zatvara.
         // Ponovni poziv na zatvorenom nalogu samo ponovi ono što u tiketu nije uspjelo.
-        nalozi.MapPost("/{id:int}/zatvori", async (int id, ClaimsPrincipal ko, IWebHostEnvironment env) =>
+        nalozi.MapPost("/{id:int}/zatvori", async (int id, ZatvaranjeUnos? u, ClaimsPrincipal ko, IWebHostEnvironment env) =>
         {
             var korisnik = ko.FindFirstValue(Tvrdnje.Ime) ?? ko.Identity?.Name;
             var n = await UcitajAsync(connectionString, id);
@@ -140,7 +140,7 @@ public static class NaloziApi
                     await c.ExecuteAsync("INSERT INTO dbo.NalogIzmjena (NalogId, Korisnik, Opis) VALUES (@id, @korisnik, N'Nalog zatvoren')", new { id, korisnik });
             }
             var poruke = await Tehnotim.RadniNalozi.Sdp.PovratUTiket.PosaljiAsync(connectionString, id, env.WebRootPath, korisnik);
-            poruke.AddRange(await Tehnotim.RadniNalozi.Sdp.PovratUTiket.ZatvoriTiketAsync(connectionString, id, korisnik));
+            poruke.AddRange(await Tehnotim.RadniNalozi.Sdp.PovratUTiket.ZatvoriTiketAsync(connectionString, id, korisnik, u?.StatusTiketa));
             return Results.Ok(new { tiket = poruke });
         });
 

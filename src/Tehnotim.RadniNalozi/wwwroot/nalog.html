@@ -470,22 +470,24 @@ function calcTravel() {
 
 // ---------- Zatvaranje naloga (dugme) ----------
 // Potvrda e-mailom (ovlaštena lica) je za sada isključena – nema pristupa izvana; nalog se zatvara dugmetom.
-// Zatvaranje tiketa u SDP-u je za sada isključeno (obavezna polja pri zatvaranju) – isto kao PovratUTiket.ZatvaranjeTiketaUkljuceno
-const ZATVARA_TIKET = false;
+// Zatvaranje tiketa u SDP-u: popunjava obavezna polja (Inženjer / Tehničar; Printing: serijski broj, brojač)
+const ZATVARA_TIKET = true;
+const izborStatusa = () => `<label class="f" style="min-width:200px;flex:0 1 220px"><span>Tiket u SDP-u prebaciti u</span>
+  <select id="status-tiketa"><option value="Closed">Closed (zatvoren)</option><option value="Resolved">Resolved (riješen)</option></select></label>`;
 function prikaziZatvaranje() {
   const n = cur, el = $('#zatvaranje'); if (!el) return;
   const tiket = ZATVARA_TIKET ? n.sdpZahtjevId : null, kanc = ['kancelarija', 'administrator'].includes(window.ja?.uloga);
   if (n.zatvoreno) {
     el.innerHTML = `<div class="pstanje ok"><b>Nalog je zatvoren</b> – ${esc(n.zatvorio || '')}, ${fDT(n.zatvoreno)}.`
       + (tiket ? (n.sdpTiketZatvoren ? ` Tiket ${tiket} je zatvoren u SDP-u (${fDT(n.sdpTiketZatvoren)}).` : ` <b>Tiket ${tiket} nije zatvoren.</b>`) : '') + '</div>'
-      + `<div class="potvrda-red" style="margin-top:10px">${tiket && !n.sdpTiketZatvoren ? '<button id="zatvori">Ponovo zatvori tiket</button>' : ''}`
+      + `<div class="potvrda-red" style="margin-top:10px">${tiket && !n.sdpTiketZatvoren ? izborStatusa() + '<button id="zatvori">Ponovo zatvori tiket</button>' : ''}`
       + `${kanc ? '<button class="ghost" id="otvori">Vrati u rad</button>' : ''}</div>`;
     if (window.ja?.uloga === 'serviser') { $('#save').disabled = true; $('#save').title = 'Nalog je zatvoren – izmjene radi kancelarija.'; }
   } else {
     el.innerHTML = `<p class="hint" style="margin:0 0 10px">Kad je posao završen: izaberite status, upišite opis izvršene intervencije i zatvorite nalog.`
-      + (tiket ? ` Zatvaranjem se u tiket ${tiket} upisuje napomena i PDF, a tiket se zatvara u ServiceDesk Plus-u.`
+      + (tiket ? ` Zatvaranjem se u tiket ${tiket} upisuje napomena i PDF, popune se polja „Inženjer / Tehničar” (nosilac naloga) i za Printing serijski broj i brojač, upiše rješenje i tiket se zatvara. Ako za isti tiket postoji još nezatvoren nalog, tiket se zatvara tek sa posljednjim nalogom.`
          : n.sdpZahtjevId ? ` U tiket ${n.sdpZahtjevId} se upisuje napomena i PDF; sam tiket zatvorite u ServiceDesk Plus-u.` : '') + '</p>'
-      + `<button class="primary" id="zatvori">Zatvori nalog${tiket ? ' i tiket' : ''}</button>`;
+      + `<div class="potvrda-red">${tiket ? izborStatusa() : ''}<button class="primary" id="zatvori">Zatvori nalog${tiket ? ' i tiket' : ''}</button></div>`;
   }
   const z = $('#zatvori'); if (z) z.onclick = () => zatvori(z);
   const o = $('#otvori'); if (o) o.onclick = () => vratiURad(o);
@@ -500,7 +502,8 @@ async function zatvori(b) {
   }
   const dugme = $('#zatvori'); if (dugme) dugme.disabled = true;
   $('#save-state').textContent = 'Zatvaram…';
-  const r = await fetch(`/api/nalozi/${nalogId}/zatvori`, { method: 'POST' });
+  const statusTiketa = $('#status-tiketa')?.value || 'Closed';
+  const r = await fetch(`/api/nalozi/${nalogId}/zatvori`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statusTiketa }) });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { $('#save-state').innerHTML = `<span class="greska">${esc(d.greska || 'Nalog nije zatvoren.')}</span>`; const x = $('#zatvori'); if (x) x.disabled = false; return; }
   await ucitajNalog();
@@ -740,7 +743,7 @@ function popuniListe() {
   $('#dl-materijal').innerHTML = S.materijal.map(m => `<option value="${esc(m.naziv)}">${esc([m.pn, m.vodiSeSN ? 'po SN' : 'na stanju ' + kolTxt(m.stanje)].filter(Boolean).join(' · '))}</option>`).join('');
 }
 
-['input', 'change'].forEach(ev => $('#main').addEventListener(ev, e => { if (e.target.id !== 'f-lice') izmjene = true; }));
+['input', 'change'].forEach(ev => $('#main').addEventListener(ev, e => { if (!['f-lice', 'status-tiketa'].includes(e.target.id)) izmjene = true; }));
 $('#main').addEventListener('pointerdown', e => { if (e.target.tagName === 'CANVAS') izmjene = true; });
 $('#main').addEventListener('click', e => {
   const b = e.target.closest('button');

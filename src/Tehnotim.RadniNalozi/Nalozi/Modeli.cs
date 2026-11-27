@@ -193,3 +193,6 @@ public class NalogUredjajaStavka
     public int? Kolor { get; set; }
     public int? CB { get; set; }
 }
+
+/// <summary>Dugme „Zatvori nalog”: u koji status ide tiket u SDP-u ("Closed" – podrazumijevano, ili "Resolved").</summary>
+public record ZatvaranjeUnos(string? StatusTiketa);
